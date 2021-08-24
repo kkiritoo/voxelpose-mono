@@ -101,8 +101,8 @@ class Panoptic(JointsDataset):
 
 
         # 注意这里直接读取预先保存的db文件，下面暂时注释
-        # if False:
-        if osp.exists(self.db_file):
+        if False:
+            # if osp.exists(self.db_file):
             info = pickle.load(open(self.db_file, 'rb'))
             assert info['sequence_list'] == self.sequence_list
             assert info['interval'] == self._interval
@@ -216,6 +216,9 @@ class Panoptic(JointsDataset):
                                 'joints_2d_vis': all_poses_vis,
                                 'camera': our_cam
                             })
+                            # print(db[-1]['joints_3d'])
+                            # print(db[-1]['joints_2d'])
+                            # st()
         return db
 
     def _get_cam(self, seq):

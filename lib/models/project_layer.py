@@ -256,8 +256,22 @@ class ProjectLayer(nn.Module):
                         [w - 1, h - 1], dtype=torch.float,
                         device=device) * 2.0 - 1.0
                     sample_grid = torch.clamp(sample_grid.view(1, 1, nbins, 2), -1.1, 1.1)
+                    
+                    # 这个sample_grid现在是-1.1到1.1的，已经归一化过的，所以应该可以用在heatmap，uv等等
+                    # 投影到rgb uv上面比较方便毕竟之前算过了，如果投影到depth uv上面其实也行
+                    # 先用第一种把
 
-                    # st()
+                    # 主要的区别在于heatmap uv只能索引到一个值，但是cloud可以索引到3个值，三个值分别sample之后合到一起吗
+                    # 不需要，你观察一下，这个15相当于15个joint的map互不干预，插值
+                    # 3个坐标其实也是互不干预插值啊
+                    # (Pdb) meta[c]['cloud'].permute(0,3,1,2).cpu().detach().numpy().shape
+                    # (1, 3, 1080, 1920)
+                    # (Pdb) heatmaps[c][i:i + 1, :, :, :].shape
+                    # torch.Size([1, 15, 128, 240])
+
+                    # 我觉得这里可能有问题，因为cloud是稀疏的，先跑起来，如果有问题，就把cloud插值满之后再跑
+
+
                     if self.f_weight:
 
                         
@@ -309,174 +323,26 @@ class ProjectLayer(nn.Module):
                         # 现在投影到你算好的uv->3d point cloud上面去，就得到了(128000,3) (射线上的应该的坐标)
                         # ，然后和12800个点原本的坐标(128000, 3)(grid里面的)
                         # 计算距离来算一个权重来加权即可
-                        # st()
-                        # 
                         
-                        # heatmap 128, 240
-                        # network image 512, 960
-                        # raw image 1080, 1920
+                        # 投影到你算好的uv->3d point cloud上面去
 
-                        # 有个大问题，这里如果有多个人的subject，heatmap直接get_max_preds会不会把其他的人的
-                        # (Pdb) heatmaps[c][i:i + 1, :, :, :].shape
-                        # torch.Size([1, 15, 128, 240])
-                        # 下面这个argmax的方法只能用在单人的情况下把
-                        # 多人的情况下，这个heatmap应该是有多个峰的，也就是说不能直接argmax
-                        # 那就只能对于heatmap上面每一个点，找对应的point cloud，这样把2d的高斯变为3d的高斯
-                        # 所以需要get_max_preds处理多个峰的情况
-
-                        # 如果直接2d heatmap用所有有point的点去计算3d heatmap也可以，但是太稀疏
-                        # 直接用这个点去影响12800中的周围的很多点，可能也可以，但是计算量超级大
-
-                        # vis一下子
-
-                        coords, maxvals = get_max_preds(heatmaps[c][i:i + 1, :, :, :].cpu().detach().numpy())
-                        # 注意这个coords其实不是真实的heatmap的坐标，而是yx调换了，应该用yx索引而不是xy
-                        # (Pdb) coords[0,0]
-                        # array([108.,  46.], dtype=float32)
-                        # (Pdb) heatmaps[c][i:i + 1, :, :, :].cpu().detach().numpy()[0,0,108,46]
-                        # 6.563641e-05
-                        # (Pdb) heatmaps[c][i:i + 1, :, :, :].cpu().detach().numpy()[0,0,46,108]
-                        # 0.9671191
-
-
-                        coords = coords[0]
-                        network_coords = np.zeros_like(coords)
-                        network_coords[:,0] = coords[:,0] * 960 / 240
-                        network_coords[:,1] = coords[:,1] * 512 / 128
-
-                        raw_coords = network_coords * 2
-                        raw_coords = raw_coords.astype(np.uint32)
-
-                        # 即使scale变化比例，也应该差不多，感觉差不多
-                        # print(network_coords[:,:,1] / network_coords[:,:,0])
-                        # print(meta[c]['joints'][i][0][:,1] / meta[c]['joints'][i][0][:,0])
-                        # print(network_coords)
-                        # print(meta[c]['joints'][i][0])
-
-
-                        mask = np.multiply((meta[c]['cloud'][i][:,:,0].cpu().detach().numpy()==0), (meta[c]['cloud'][i][:,:,1].cpu().detach().numpy()==0))
-                        mask = np.multiply(mask, (meta[c]['cloud'][i][:,:,2].cpu().detach().numpy()==0))
-
-                        # (Pdb) (mask == True).sum()
-                        # 1900712
-                        # (Pdb) (mask == False).sum()
-                        # 172888
-
-                        # (Pdb) ((meta[c]['cloud'][i].sum(axis=2)==0)==True).sum()
-                        # tensor(1900712, device='cuda:0')
-                        # (Pdb) ((meta[c]['cloud'][i].sum(axis=2)==0)==False).sum()
-                        # tensor(172888, device='cuda:0')
-
-                        # st()
-                        # import time
-
-                        coords_to_cloud = np.zeros((coords.shape[0], 3))
-                        for joint_i, raw_coord in enumerate(raw_coords):
-                            # print('start timing...')
-                            # time_start=time.time()
                             
-                            # 下面这个raw_xy坐标可能反了
-                            raw_x = raw_coord[1]
-                            raw_y = raw_coord[0]
-
-                            # if raw_y < 1920 and raw_x < 1080:
-                            #     print('passed!')
-                            # else:
-                            #     print('forbiden!')
-
-                            find_non_zero = False
-                            too_far = False
-
-                            # find a non-zero point index that is nearest to raw coord
-                            for r in range(max(mask.shape[0], mask.shape[1])): # 一圈一圈找
-                                
-                                # 大部分r都能控制在5以内
-                                # 5之外的joints拿不到深度就不加权了把，直接保留原状
-                                if r > 5:
-                                    too_far = True
-                                    break
-
-                                cur_x = raw_x - r
-                                for delta_y in range(-r, r+1):
-                                    cur_y = raw_y + delta_y # 卡住
-                                    if cur_x < 0 or cur_x >= mask.shape[0] or cur_y < 0 or cur_y >= mask.shape[1]:continue
-                                    if mask[cur_x, cur_y] == False:
-                                        find_non_zero = True
-                                        break
-                                
-                                if find_non_zero:
-                                    break
-
-                                cur_x = raw_x + r
-                                for delta_y in range(-r, r+1):
-                                    cur_y = raw_y + delta_y # 卡住
-                                    if cur_x < 0 or cur_x >= mask.shape[0] or cur_y < 0 or cur_y >= mask.shape[1]:continue
-                                    if mask[cur_x, cur_y] == False:
-                                        break
-
-                                if find_non_zero:
-                                    break
-
-                                cur_y = raw_y - r
-                                for delta_x in range(-r, r+1):
-                                    cur_x = raw_x + delta_x # 卡住
-                                    if cur_x < 0 or cur_x >= mask.shape[0] or cur_y < 0 or cur_y >= mask.shape[1]:continue
-                                    if mask[cur_x, cur_y] == False:
-                                        break
-                                
-                                if find_non_zero:
-                                    break
-
-                                cur_y = raw_y + r
-                                for delta_x in range(-r, r+1):
-                                    cur_x = raw_x + delta_x # 卡住
-                                    if cur_x < 0 or cur_x >= mask.shape[0] or cur_y < 0 or cur_y >= mask.shape[1]:continue
-                                    if mask[cur_x, cur_y] == False:
-                                        break
-                                
-                                if find_non_zero:
-                                    break
-                            
-                            if too_far:
-                                coords_to_cloud[joint_i] = np.array([-1.0, -1.0, -1.0])
-                            else:
-                                coords_to_cloud[joint_i] = meta[c]['cloud'][i][cur_x][cur_y].cpu().detach().numpy()
-                            # print(f"r {r} | dist {(cur_x - raw_x) ** 2 + (cur_y - raw_y) ** 2}| raw_xy: ({raw_x}, {raw_y}) | cur_xy: ({cur_x}, {raw_y}) | {meta[c]['cloud'][i][cur_x][cur_y]}")
+                        cloud = meta[c]['cloud'].permute(0,3,1,2).float() * 100
                         
-                            # time_end=time.time()
-                            # print(f'time cost for joint_i {joint_i}\n',time_end-time_start)
+                        # print(cloud[:,0,:,:].max(), cloud[:,1,:,:].max(), cloud[:,2,:,:].max())
+                        # print(cloud[:,0,:,:].min(), cloud[:,1,:,:].min(), cloud[:,2,:,:].min())
+                        # print('\n')
 
+                        grid_coord_from_depthmap = F.grid_sample(cloud, sample_grid, align_corners=True)
+                        grid_reshape = grid.permute(1,0).reshape((1,3,1,nbins))
+                        grid_res = grid_reshape - grid_coord_from_depthmap
+                        grid_res_square = (grid_res * grid_res).sum(axis=1)
+                        weight_all = (1 - grid_res_square / grid_res_square.max()).reshape(1,1,1,nbins).repeat(1,num_joints,1,1)
+                        
 
-                        ### now 给没有找到depth的保留原样
-                        weight_all = torch.ones(1, num_joints, 1, nbins, device=device)
-                        # 需要找到joint_i的3d坐标到grid的映射，就能做一个高斯heatmap了
-                        
-                        # (Pdb) weight_all.shape
-                        # torch.Size([1, 15, 1, 128000])
-                        
-                        for joint_i, coord_to_cloud in enumerate(coords_to_cloud):
-                            if coord_to_cloud[0] > 0:
-                                if len(grid_center) == 1:
-                                    weightmap_i = generate_3d_weightmap(grid_size, grid_center[0], cube_size, coord_to_cloud)
-                                else:
-                                    weightmap_i = generate_3d_weightmap(grid_size, grid_center[i], cube_size, coord_to_cloud)
-                                weight_all[:, joint_i, :, :] = torch.as_tensor(weightmap_i.reshape(1,1,1,-1), dtype=torch.float, device=device)
-                        ### now 给没有找到depth的保留原样
-
-
-                        # ### org 考虑所有的voxel
-                        # # 需要找到joint_i的3d坐标到grid的映射，就能做一个高斯heatmap了
-                        
-                        # # get_voxel函数本身就是只生成一个voxel，一个整个空间，或者一个人的bbox，
-                        # # 所以generate_3d_target中joints_3d只能是一个人
-                        # weight_all = torch.zeros(1, num_joints, 1, nbins, device=device)
-                        # # (Pdb) weight_all.shape
-                        # # torch.Size([1, 15, 1, 128000])
-                        
-                        # for joint_i, coord_to_cloud in enumerate(coords_to_cloud):
-                        #     weightmap_i = generate_3d_weightmap(grid_size, grid_center[i], cube_size, coord_to_cloud)
-                        #     weight_all[:, joint_i, :, :] = torch.as_tensor(weightmap_i.reshape(1,1,1,-1), dtype=torch.float, device=device)
-                        # ### org 考虑所有的voxel
+                        # 感觉绝大多数的点都离得太远了，其实也合理，本身cloud中都只有1/10的位置有值
+                        # 而且一条射线经过的点最短是边长，就算是80把，这80中只有可能有几个点在很近的地方
+                        # 那就相当于128000/8000=16可不是就只有16个点很近吗
 
                         # if pytorch version < 1.3.0, align_corners=True should be omitted.
                         cubes[i:i + 1, :, :, :, c] += F.grid_sample(heatmaps[c][i:i + 1, :, :, :], sample_grid, align_corners=True) * weight_all

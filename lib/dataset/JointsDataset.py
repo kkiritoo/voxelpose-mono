@@ -203,8 +203,13 @@ class JointsDataset(Dataset):
         for i in range(nposes):
             joints_3d_u[i] = joints_3d[i][:, 0:3]
             joints_3d_vis_u[i] = joints_3d_vis[i][:, 0:3]
-
+        
+        # 我需要知道3d的空间的范围一般是多少
         # st()
+        # (Pdb) len(joints_3d)
+        # 3
+        # 3个instance
+        # 看了这个函数之后，我感觉应该是joints_3d这个之前就已经映射到grid坐标了
         target_3d = self.generate_3d_target(joints_3d)
         target_3d = torch.from_numpy(target_3d)
 
@@ -319,6 +324,7 @@ class JointsDataset(Dataset):
         space_center = self.space_center
         cube_size = self.initial_cube_size
         grid1Dx = np.linspace(-space_size[0] / 2, space_size[0] / 2, cube_size[0]) + space_center[0]
+        # st()
         grid1Dy = np.linspace(-space_size[1] / 2, space_size[1] / 2, cube_size[1]) + space_center[1]
         grid1Dz = np.linspace(-space_size[2] / 2, space_size[2] / 2, cube_size[2]) + space_center[2]
 
@@ -349,6 +355,8 @@ class JointsDataset(Dataset):
             target[i_x[0]:i_x[1], i_y[0]:i_y[1], i_z[0]:i_z[1]] = np.maximum(target[i_x[0]:i_x[1], i_y[0]:i_y[1], i_z[0]:i_z[1]], g)
 
         target = np.clip(target, 0, 1)
+
+        # st()
         return target
 
     def generate_input_heatmap(self, joints):

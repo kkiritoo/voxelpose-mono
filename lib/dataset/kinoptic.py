@@ -32,26 +32,28 @@ logger = logging.getLogger(__name__)
 
 
 
-TRAIN_LIST = [
-    '160906_band1',
-]
-
-VAL_LIST = ['160906_band1']
-
-
 # TRAIN_LIST = [
-#     '160422_ultimatum1',
-#     '160224_haggling1',
-#     '160226_haggling1',
-#     '161202_haggling1',
-#     '160906_ian1',
-#     '160906_ian2',
-#     '160906_ian3',
 #     '160906_band1',
-#     '160906_band2',
-#     '160906_band3',
 # ]
-# VAL_LIST = ['160906_pizza1', '160422_haggling1', '160906_ian5']
+
+# VAL_LIST = ['160906_band1']
+
+
+TRAIN_LIST = [
+    '160422_ultimatum1',
+    '160224_haggling1',
+    '160226_haggling1',
+    '161202_haggling1',
+    '160906_ian1',
+    '160906_ian2',
+    '160906_ian3',
+    '160906_band1',
+    '160906_band2'
+]
+VAL_LIST = ['160906_band3', '160906_pizza1', '160906_ian5']
+
+# '160422_haggling1' # 这个json decode有问题
+# 160906_band4 下载不全
 
 
 JOINTS_DEF = {
@@ -347,14 +349,16 @@ class Kinoptic(JointsDataset):
             selected_cams = CAMS[:self.num_views]
             
             seq_root = osp.join(self.dataset_root, seq)
-
+            
             self._sync = SyncReader(path.join(seq_root, f'ksynctables_{seq}.json'), \
                                     path.join(seq_root, 'hdPose3d_stage1_coco19'), selected_cams)
             
             
             self._data = list(self._check(seq))
 
-            print(f'self._sync : {len(self._sync)}, self._data : {len(self._data)}')
+            # st()
+
+            print(f'seq : {seq}, self._sync : {len(self._sync)}, self._data : {len(self._data)}')
 
             # st()
 
@@ -403,7 +407,8 @@ class Kinoptic(JointsDataset):
                         # 注意这里因为之前/100这里也/100
                         joints_vis = pose3d[:, -1] > (0.1 / 100)
 
-                        all_poses_3d.append(pose3d[:, 0:3] * 10.0) 
+                        # 这里再*100来保持原样
+                        all_poses_3d.append(pose3d[:, 0:3] * 10.0 * 100) 
                         all_poses_vis_3d.append(
                             np.repeat(
                                 np.reshape(joints_vis, (-1, 1)), 3, axis=1))
@@ -461,6 +466,8 @@ class Kinoptic(JointsDataset):
                         our_cam['k'] = v['distCoef'][[0, 1, 4]].reshape(3, 1)
                         our_cam['p'] = v['distCoef'][[2, 3]].reshape(2, 1)
 
+                        
+                        # 这里检查和panoptic出来的一致性
                         db.append({
                             'key': "",
                             'image': "",
@@ -475,7 +482,10 @@ class Kinoptic(JointsDataset):
                             'seq': seq, 
                             'dataset_name': 'kinoptic'
                         })
-
+                        
+                        # print(db[-1]['joints_3d'])
+                        # print(db[-1]['joints_2d'])
+                        # st()
 
                         # if idx > 11300 and idx % 2 == 0:
                         #     # if idx > 8000 and idx % 2 == 0:
@@ -620,7 +630,7 @@ class Kinoptic(JointsDataset):
             # if 113 == cv.waitKey(10):
             #     st()
 
-            return db
+        return db
 
     def _get_cam(self, seq):
         
@@ -843,6 +853,9 @@ class SyncReader:
         
         # panoptic-dataset-tools
         bodies = list(map(lambda body: np.array(body).reshape(-1, 4) / 100, bodies))
+
+        # 注意这里panoptic-dataset-tools处理先/100了
+
         # bodies = np.array(bodies).reshape(-1, 4)[:, :3] / 100
         # st()
 
