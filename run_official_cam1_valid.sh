@@ -1,0 +1,1 @@
+CUDA_VISIBLE_DEVICES=8 python run/validate_3d.py --cfg configs/panoptic/resnet50/prn64_cpn80x80x20_960x512_cam1.yaml

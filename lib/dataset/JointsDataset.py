@@ -82,7 +82,12 @@ class JointsDataset(Dataset):
         db_rec = copy.deepcopy(self.db[idx])
         
         # cloud -> meta
-        cloud = None
+        cloud = -1.0
+        # st()
+        if not 'seq' in db_rec.keys():
+            db_rec['seq'] = -1.0
+        if not 'camera_index' in db_rec.keys():
+            db_rec['camera_index'] = -1.0
         # st()
         # 可以直接用子类定义的depth_reader等属性
         if 'dataset_name' in db_rec.keys():
@@ -96,7 +101,7 @@ class JointsDataset(Dataset):
                 data_numpy = self._color_reader_list[db_rec['seq']][db_rec['camera_index']][db_rec['color_index']]
                 # time_end=time.time()
                 # print('color cost\n',time_end-time_start)
-                cloud = -1.0
+                
                 if self.f_weight:
                     # time_start=time.time()
                     depth_data_numpy = self._depth_reader_list[db_rec['seq']][db_rec['camera_index']][db_rec['depth_index']]
@@ -136,6 +141,10 @@ class JointsDataset(Dataset):
         joints_vis = db_rec['joints_2d_vis']
         joints_3d = db_rec['joints_3d']
         joints_3d_vis = db_rec['joints_3d_vis']
+
+        st()
+        # 看一下cloud最近的有值的点是不是和joint的坐标大差不差
+        
 
         nposes = len(joints)
         assert nposes <= self.maximum_person, 'too many persons'
@@ -218,6 +227,7 @@ class JointsDataset(Dataset):
         elif isinstance(self.root_id, list):
             roots_3d = np.mean([joints_3d_u[:, j] for j in self.root_id], axis=0)
         
+
         meta = {
             'image': image_file,
             'num_person': nposes,
@@ -230,6 +240,8 @@ class JointsDataset(Dataset):
             'scale': s,
             'rotation': r,
             'camera': db_rec['camera'], 
+            'seq': db_rec['seq'],
+            'camera_index': db_rec['camera_index'],
             'cloud': cloud
         }
 

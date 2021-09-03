@@ -43,8 +43,11 @@ class MultiPersonPoseNet(nn.Module):
                 all_heatmaps.append(heatmaps)
         else:
             all_heatmaps = input_heatmaps
-
+        
+        # 下面这个注释指的是使用gt 
+        ### debugging 使用gt heatmap
         # all_heatmaps = targets_2d
+
         device = all_heatmaps[0].device
         batch_size = all_heatmaps[0].shape[0]
 
@@ -71,7 +74,21 @@ class MultiPersonPoseNet(nn.Module):
                 grid_centers[i, :num_person[i], 3] = torch.tensor(range(num_person[i]), device=device)
                 grid_centers[i, :num_person[i], 4] = 1.0
         else:
+            
+            
             root_cubes, grid_centers = self.root_net(all_heatmaps, meta)
+            
+            # # lcc debugging
+            # # all_heatmaps几乎完全一样， root_cubes和grid_centers都不一样
+            # print('all_heatmaps', all_heatmaps[0])
+            # print(all_heatmaps[0].min(), all_heatmaps[0].max(), all_heatmaps[0].mean())
+            # print('root_cubes', root_cubes[0])
+            # print(root_cubes[0].min(), root_cubes[0].max(), root_cubes[0].mean())
+            # print('grid_centers', grid_centers[0])
+            # print(grid_centers[0].min(), grid_centers[0].max(), grid_centers[0].mean())
+            # st()
+            
+
 
             # calculate 3D heatmap loss
             if targets_3d is not None:

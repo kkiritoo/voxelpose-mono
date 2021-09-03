@@ -112,8 +112,30 @@ class CuboidProposalNet(nn.Module):
         # 注意这里传进去的[self.grid_center]，说明每一个batch只创建一个cube
         initial_cubes, grids = self.project_layer(all_heatmaps, meta,
                                                   self.grid_size, [self.grid_center], self.cube_size)
+
+        # lcc debugging
+        # all_heatmaps完全一样， initial_cubes和grid完全一样
+        # print('all_heatmaps', all_heatmaps[0])
+        # print(all_heatmaps[0].min(), all_heatmaps[0].max(), all_heatmaps[0].mean())
+        # print('initial_cubes', initial_cubes[0])
+        # print(initial_cubes[0].min(), initial_cubes[0].max(), initial_cubes[0].mean())
+        # print('grids', grids[0])
+        # print(grids[0].min(), grids[0].max(), grids[0].mean())
+        # st()
+
+        #
         root_cubes = self.v2v_net(initial_cubes)
         root_cubes = root_cubes.squeeze(1)
         grid_centers = self.proposal_layer(root_cubes, meta)
+
+        # lcc debugging
+        # 这两个完全不一样，几乎可以确定是问题出在root_cubes = self.v2v_net(initial_cubes)这一行
+        # print('root_cubes', root_cubes[0])
+        # print(root_cubes[0].min(), root_cubes[0].max(), root_cubes[0].mean())
+        # print('grid_centers', grid_centers[0])
+        # print(grid_centers[0].min(), grid_centers[0].max(), grid_centers[0].mean())
+        # st()
+
+        # # 看一下这个grid center是否与root joint重合
 
         return root_cubes, grid_centers

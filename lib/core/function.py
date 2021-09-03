@@ -28,7 +28,9 @@ def train_3d(config, model, optimizer, loader, epoch, output_dir, writer_dict, d
     losses_cord = AverageMeter()
 
     model.train()
+    # model.eval() # 这里设置eval输出才会和eval时候完全一样
 
+    ### 注意
     if model.module.backbone is not None:
         model.module.backbone.eval()  # Comment out this line if you want to train 2D backbone jointly
 
@@ -55,8 +57,15 @@ def train_3d(config, model, optimizer, loader, epoch, output_dir, writer_dict, d
                                                                               weights_2d=weights_2d,
                                                                               targets_3d=targets_3d[0])
         
-        
-        
+        # # # lcc debugging 
+        # if i % 100 == 0:
+        #     # 只有pred不同其他全部一样，md
+        #     print(inputs[0])
+        #     print(meta[0])
+        #     print(inputs[0].max(), inputs[0].min(), inputs[0].mean())
+        #     print(pred[0].max(), pred[0].min(), pred[0].mean())
+
+    
         loss_2d = loss_2d.mean()
         loss_3d = loss_3d.mean()
         loss_cord = loss_cord.mean()
@@ -67,9 +76,13 @@ def train_3d(config, model, optimizer, loader, epoch, output_dir, writer_dict, d
         loss = loss_2d + loss_3d + loss_cord
         losses.update(loss.item())
 
+
+        # debugging不更新参数，纳尼，居然变得和val一样了，都是完全
         if loss_cord > 0:
             optimizer.zero_grad()
             (loss_2d + loss_cord).backward()
+            # 为了传2d loss
+            # (loss_2d + loss_cord).backward(retain_graph=True)
             optimizer.step()
 
         if accu_loss_3d > 0 and (i + 1) % accumulation_steps == 0:
@@ -123,7 +136,22 @@ def train_3d(config, model, optimizer, loader, epoch, output_dir, writer_dict, d
 def validate_3d(config, model, loader, output_dir):
     batch_time = AverageMeter()
     data_time = AverageMeter()
+
+
+    # # lcc debugging 
+    # losses = AverageMeter()
+    # losses_2d = AverageMeter()
+    # losses_3d = AverageMeter()
+    # losses_cord = AverageMeter()
+
+
+    ### 原本的eval操作 
     model.eval()
+
+    # ### training时候的操作
+    # model.train()
+    # if model.module.backbone is not None:
+    #     model.module.backbone.eval()  # Comment out this line if you want to train 2D backbone jointly
 
     preds = []
     with torch.no_grad():
@@ -139,13 +167,41 @@ def validate_3d(config, model, loader, output_dir):
             elif 'kinoptic' in config.DATASET.TEST_DATASET:
                 pred, heatmaps, grid_centers, _, _, _ = model(views=inputs, meta=meta, targets_2d=targets_2d,
                                                               weights_2d=weights_2d, targets_3d=targets_3d[0])
+                
+                # pred, heatmaps, grid_centers, loss_2d, loss_3d, loss_cord = model(views=inputs, meta=meta, targets_2d=targets_2d,
+                #                                               weights_2d=weights_2d, targets_3d=targets_3d[0])
 
+            # # lcc debugging 
+            # loss_2d = loss_2d.mean()
+            # loss_3d = loss_3d.mean()
+            # loss_cord = loss_cord.mean()
+
+            # print(f'loss_2d {loss_2d} loss_3d {loss_3d} loss_cord {loss_3d}')
+
+            # losses_2d.update(loss_2d.item())
+            # losses_3d.update(loss_3d.item())
+            # losses_cord.update(loss_cord.item())
+            # loss = loss_2d + loss_3d + loss_cord
+            # losses.update(loss.item())
+            
+
+            
             pred = pred.detach().cpu().numpy()
             for b in range(pred.shape[0]):
                 preds.append(pred[b])
 
             batch_time.update(time.time() - end)
             end = time.time()
+
+
+            # # # lcc debugging 
+            # if i % 100 == 0:
+            #     print(inputs[0])
+            #     print(meta[0])
+            #     print(inputs[0].max(), inputs[0].min(), inputs[0].mean())
+            #     print(pred[0].max(), pred[0].min(), pred[0].mean())
+
+
             if i % config.PRINT_FREQ == 0 or i == len(loader) - 1:
                 gpu_memory_usage = torch.cuda.memory_allocated(0)
                 msg = 'Test: [{0}/{1}]\t' \
@@ -157,6 +213,21 @@ def validate_3d(config, model, loader, output_dir):
                         speed=len(inputs) * inputs[0].size(0) / batch_time.val,
                         data_time=data_time, memory=gpu_memory_usage)
                 logger.info(msg)
+
+                # # lcc debugging 
+                # msg = '\n' \
+                #   'Time: {batch_time.val:.3f}s ({batch_time.avg:.3f}s)\t' \
+                #   'Speed: {speed:.1f} samples/s\t' \
+                #   'Data: {data_time.val:.3f}s ({data_time.avg:.3f}s)\t' \
+                #   'Loss: {loss.val:.6f} ({loss.avg:.6f})\t' \
+                #   'Loss_2d: {loss_2d.val:.7f} ({loss_2d.avg:.7f})\t' \
+                #   'Loss_3d: {loss_3d.val:.7f} ({loss_3d.avg:.7f})\t' \
+                #   'Loss_cord: {loss_cord.val:.6f} ({loss_cord.avg:.6f})\t' \
+                #   'Memory {memory:.1f}'.format(batch_time=batch_time,
+                #     speed=len(inputs) * inputs[0].size(0) / batch_time.val,
+                #     data_time=data_time, loss=losses, loss_2d=losses_2d, loss_3d=losses_3d,
+                #     loss_cord=losses_cord, memory=gpu_memory_usage)
+                # logger.info(msg)
 
                 for k in range(len(inputs)):
                     view_name = 'view_{}'.format(k + 1)

@@ -83,7 +83,8 @@ def main():
     test_model_file = os.path.join(final_output_dir, config.TEST.MODEL_FILE)
     if config.TEST.MODEL_FILE and os.path.isfile(test_model_file):
         logger.info('=> load models state {}'.format(test_model_file))
-        model.module.load_state_dict(torch.load(test_model_file))
+        # model.module.load_state_dict(torch.load(test_model_file))
+        model.module.load_state_dict(torch.load(test_model_file)["state_dict"])
     else:
         raise ValueError('Check the model file for testing!')
 

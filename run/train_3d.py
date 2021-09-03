@@ -50,7 +50,9 @@ def get_optimizer(model):
     # fix backbone
     if model.module.backbone is not None:
         for params in model.module.backbone.parameters():
+            ### debugging train 2d net
             params.requires_grad = False   # If you want to train the whole model jointly, set it to be True.
+            # params.requires_grad = True
     for params in model.module.root_net.parameters():
         params.requires_grad = True
     for params in model.module.pose_net.parameters():
@@ -104,6 +106,8 @@ def main():
         num_workers=config.WORKERS,
         pin_memory=True)
 
+    print(f'train : {len(train_dataset)} | test : {len(test_dataset)}')
+
     cudnn.benchmark = config.CUDNN.BENCHMARK
     torch.backends.cudnn.deterministic = config.CUDNN.DETERMINISTIC
     torch.backends.cudnn.enabled = config.CUDNN.ENABLED
@@ -134,6 +138,9 @@ def main():
     print('=> Training...')
     for epoch in range(start_epoch, end_epoch):
         print('Epoch: {}'.format(epoch))
+
+        # # debug testing 
+        # precision = validate_3d(config, model, test_loader, final_output_dir)
 
         # lr_scheduler.step()
         train_3d(config, model, optimizer, train_loader, epoch, final_output_dir, writer_dict)

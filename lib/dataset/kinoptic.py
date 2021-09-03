@@ -32,6 +32,7 @@ logger = logging.getLogger(__name__)
 
 
 
+
 # TRAIN_LIST = [
 #     '160906_band1',
 # ]
@@ -39,6 +40,22 @@ logger = logging.getLogger(__name__)
 # VAL_LIST = ['160906_band1']
 
 
+# # dataset1
+# TRAIN_LIST = [
+#     '160422_ultimatum1',
+#     '160224_haggling1',
+#     '160226_haggling1',
+#     '161202_haggling1',
+#     '160906_ian1',
+#     '160906_ian2',
+#     '160906_ian3',
+#     '160906_band1',
+#     '160906_band2'
+# ]
+# VAL_LIST = ['160906_band3', '160906_pizza1', '160906_ian5']
+
+
+# # dataset2
 TRAIN_LIST = [
     '160422_ultimatum1',
     '160224_haggling1',
@@ -48,9 +65,29 @@ TRAIN_LIST = [
     '160906_ian2',
     '160906_ian3',
     '160906_band1',
-    '160906_band2'
+    '160906_band2',
+    '160906_band3',
 ]
-VAL_LIST = ['160906_band3', '160906_pizza1', '160906_ian5']
+VAL_LIST = ['160906_pizza1', '160422_haggling1', '160906_ian5']
+# TRAIN_LIST = [
+#     '160422_ultimatum1'
+# ]
+# VAL_LIST = ['160422_ultimatum1']
+
+
+
+# 数据中有一些投影到2d之后离谱的点，需要手动过滤
+# TRAIN_LIST = [
+#     '160226_haggling1',
+#     '161202_haggling1',
+#     '160906_ian1',
+#     '160906_ian2',
+#     '160906_ian3',
+#     '160906_band1',
+#     '160906_band2'
+# ]
+# VAL_LIST = ['160906_band3', '160906_pizza1', '160906_ian5']
+
 
 # '160422_haggling1' # 这个json decode有问题
 # 160906_band4 下载不全
@@ -122,6 +159,7 @@ class Kinoptic(JointsDataset):
             self.num_views = len(self.cam_list)
         elif self.image_set == 'validation':
             self.sequence_list = VAL_LIST
+            # self._interval = 3
             self._interval = 12
             self.cam_list = CAMS[:self.num_views]
             self.num_views = len(self.cam_list)
@@ -170,6 +208,34 @@ class Kinoptic(JointsDataset):
                 _calib_seq_list.append(CalibReader(path.join(seq_root, f'calibration_{seq}.json'), path.join(seq_root, f'kcalibration_{seq}.json'), node_id))
 
             self._calib_list[seq] = _calib_seq_list
+        
+        # save self._calib_list for latter use 
+        if osp.exists('calib_list.pkl'):
+            with open('calib_list.pkl','rb') as calib_list_f:
+                calib_list = pickle.load(calib_list_f)
+            calib_list.update(self._calib_list)
+        else:
+            calib_list = self._calib_list
+        with open('calib_list.pkl','wb') as calib_list_f:
+            pickle.dump(calib_list, calib_list_f)
+
+        calib_list2_tmp = {}
+        for seq in self.sequence_list:
+            # 选出需要的相机的参数
+            calib_list2_tmp[seq] = self._get_cam(seq)
+        # st()
+        # save self._calib_list for latter use 
+        if osp.exists('calib_list2.pkl'):
+            with open('calib_list2.pkl','rb') as calib_list_f2:
+                calib_list2 = pickle.load(calib_list_f2)
+            calib_list2.update(calib_list2_tmp)
+        else:
+            calib_list2 = calib_list2_tmp
+
+        with open('calib_list2.pkl','wb') as calib_list_f2:
+            pickle.dump(calib_list2, calib_list_f2)
+
+        # st()
 
         ### 读取db
         self.db_file = 'group_{}_cam{}.pkl'.format(self.image_set, self.num_views)
@@ -315,8 +381,8 @@ class Kinoptic(JointsDataset):
                 # print(f'd_id:{d_id}, c_id:{c_id}')
                 # print(f'depth_len:{depth_len}, color_len:{color_len}')
 
-
                 if d_id >= depth_len or c_id >= color_len:
+                    # st()
                     continue_flag = True
                     break
             
@@ -362,273 +428,344 @@ class Kinoptic(JointsDataset):
 
             # st()
 
+
             for idx, _data_item in enumerate(self._data):
-                bodies, depth_id_list, color_id_list = _data_item
+                if idx % self._interval == 0:
+                    bodies, depth_id_list, color_id_list = _data_item
+                    # bodies, depth_id_list, color_id_list = self._data[100] # debugging
 
-                # st()
-                
-                
-                # panoptic-dataset-tools 中的投影
-                # for vis
-                # img_list_to_show = []
 
-                # 在db中存数据需要保证每次存储的，要么是连续的num_view个要么是0个，不能出现其他数字否则会乱掉
-                
-                _calib_list_seq = self._calib_list[seq]
+                    # # panoptic-dataset-tools 中的投影
+                    # # for vis
+                    # # img_list_to_show = []
 
-                for k, v in cameras.items():
+                    # # 在db中存数据需要保证每次存储的，要么是连续的num_view个要么是0个，不能出现其他数字否则会乱掉
                     
-                    camera_index = k[1] - 1 
-                    _calib = _calib_list_seq[camera_index]
+                    # _calib_list_seq = self._calib_list[seq]
+
+                    # for k, v in cameras.items():
+                        
+                    #     camera_index = k[1] - 1 
+                    #     _calib = _calib_list_seq[camera_index]
+
+                    #     # st()
+
+                    #     all_poses_3d = []
+                    #     all_poses_vis_3d = []
+                    #     all_poses = []
+                    #     all_poses_vis = []
+
+                    #     for body in bodies:
+                            
+                    #         pose3d = body
+                    #         # st()
+                    #         joints = self.joints_to_color(pose3d[:, 0:3], _calib)
+                    #         # print(joints.shape)
+                    #         # print(joints)
+                    #         proj_joints = self.project_pts(joints, _calib)
+                    #         # print(proj_joints.shape)
+                    #         # print(proj_joints)
+
+
+                    #         pose3d = pose3d[:self.num_joints]
+
+                    #         # Coordinate transformation
+                    #         M = np.array([[1.0, 0.0, 0.0],
+                    #                     [0.0, 0.0, -1.0],
+                    #                     [0.0, 1.0, 0.0]])
+                    #         # pose3d[:, 0:3].dot(M).dot(np.linalg.inv(M))
+                    #         pose3d[:, 0:3] = pose3d[:, 0:3].dot(M)
+
+                    #         proj_joints = proj_joints[:self.num_joints]
+
+                    #         # st()
+                    #         # 注意这里因为之前/100这里也/100
+                    #         joints_vis = pose3d[:, -1] > (0.1 / 100)
+
+                    #         # 这里再*100来保持原样
+                    #         all_poses_3d.append(pose3d[:, 0:3] * 10.0 * 100) 
+                    #         all_poses_vis_3d.append(
+                    #             np.repeat(
+                    #                 np.reshape(joints_vis, (-1, 1)), 3, axis=1))
+
+                    #         if not joints_vis[self.root_id]:
+                    #             continue
+                            
+                    #         # 计算pose2d
+                    #         # # Coordinate transformation
+                    #         # M = np.array([[1.0, 0.0, 0.0],
+                    #         #               [0.0, 0.0, -1.0],
+                    #         #               [0.0, 1.0, 0.0]])
+                    #         # pose3d[:, 0:3] = pose3d[:, 0:3].dot(M)
+
+                    #         # all_poses_3d.append(pose3d[:, 0:3] * 10.0) 
+                    #         # all_poses_vis_3d.append(
+                    #         #     np.repeat(
+                    #         #         np.reshape(joints_vis, (-1, 1)), 3, axis=1))
+
+                    #         # pose2d = np.zeros((pose3d.shape[0], 2))
+
+                    #         # # 2d 坐标是通过投影算出来的，用之前先可视化好
+                    #         # pose2d[:, :2] = projectPoints(
+                    #         #     pose3d[:, 0:3].transpose(), v['K'], v['R'],
+                    #         #     v['t'], v['distCoef']).transpose()[:, :2]
+
+                    #         pose2d = proj_joints
+
+                    #         # 只要不超出image就是可见
+                    #         x_check = np.bitwise_and(pose2d[:, 0] >= 0,
+                    #                                 pose2d[:, 0] <= width - 1)
+                    #         y_check = np.bitwise_and(pose2d[:, 1] >= 0,
+                    #                                 pose2d[:, 1] <= height - 1)
+                    #         check = np.bitwise_and(x_check, y_check)
+
+                    #         joints_vis[np.logical_not(check)] = 0
+
+                    #         all_poses.append(pose2d)
+                    #         all_poses_vis.append(
+                    #             np.repeat(
+                    #                 np.reshape(joints_vis, (-1, 1)), 2, axis=1))
+                        
+                    #     # if len(all_poses_3d) > 0 and len(all_poses) == 0:
+                    #     #     # 居然会这样
+                    #     #     st()
+
+                    #     if len(all_poses_3d) > 0 and len(all_poses) > 0:
+                    #         our_cam = {}
+                    #         our_cam['R'] = v['R']
+                    #         our_cam['T'] = -np.dot(v['R'].T, v['t']) * 10.0  # cm to mm
+                    #         our_cam['fx'] = np.array(v['K'][0, 0])
+                    #         our_cam['fy'] = np.array(v['K'][1, 1])
+                    #         our_cam['cx'] = np.array(v['K'][0, 2])
+                    #         our_cam['cy'] = np.array(v['K'][1, 2])
+                    #         our_cam['k'] = v['distCoef'][[0, 1, 4]].reshape(3, 1)
+                    #         our_cam['p'] = v['distCoef'][[2, 3]].reshape(2, 1)
+
+                            
+                    #         # 这里检查和panoptic出来的一致性
+                    #         db.append({
+                    #             'key': "",
+                    #             'image': "",
+                    #             'joints_3d': all_poses_3d,
+                    #             'joints_3d_vis': all_poses_vis_3d,
+                    #             'joints_2d': all_poses,
+                    #             'joints_2d_vis': all_poses_vis,
+                    #             'camera': our_cam, 
+                    #             'camera_index': camera_index, # 这之后的是为了读取image和depth的
+                    #             'depth_index': depth_id_list[camera_index], 
+                    #             'color_index': color_id_list[camera_index], 
+                    #             'seq': seq, 
+                    #             'dataset_name': 'kinoptic'
+                    #         })
+                            
+                    #         # st()
+                    #         # print(db[-1]['joints_3d'])
+                    #         # print(db[-1]['joints_2d'])
+                    #         # st()
+
+                    #         if idx % 1 == 0:
+                    #             # if idx > 8000 and idx % 2 == 0:
+                    #             # if idx > 3700 and idx % 2 == 0:
+                    #             # new_shape = (1920 // 4, 1080 // 4)
+                    #             # for vis
+                    #             # img_list_to_show.append(self._color_reader_list[seq][camera_index][color_id_list[camera_index]])
+                    #             print(all_poses)
+                    #             img = self._color_reader_list[seq][camera_index][color_id_list[camera_index]]
+                    #             for a_pose in all_poses:
+                    #                 for point_i in range(15):
+                    #                     # img = cv.putText(img, '{}'.format(point_i), (int(a_pose[point_i][0]),int(a_pose[point_i][1])), cv.FONT_HERSHEY_COMPLEX, 0.5, (255,255,0), 1)
+                    #                     img = cv.circle(img, (int(a_pose[point_i][0]),int(a_pose[point_i][1])), 2, (255, 255, 0), 2)
+                    #                     img = cv.putText(img, f'{point_i}', (int(a_pose[point_i][0]),int(a_pose[point_i][1])), 0, 1, (255, 0, 255), 2)
+                    #                     img = cv.putText(img, f'idx:{idx}', (30,30), 0, 1, (255, 0, 255), 2)
+
+                    #             cv.namedWindow("color",0)
+                    #             cv.resizeWindow("color", 960, 540)
+                    #             cv.imshow('color', img)
+                                
+                    #             if 113 == cv.waitKey(100):
+                    #                 st()
+
+
+                    ###### voxelpose投影的代码中只有少量view正确
+                    # for vis
+                    # img_list_to_show = []
+                    # 在db中存数据需要保证每次存储的，要么是连续的num_view个要么是0个，不能出现其他数字否则会乱掉
 
                     # st()
+                    # print(cameras)
+                    # print(bodies)
 
-                    all_poses_3d = []
-                    all_poses_vis_3d = []
-                    all_poses = []
-                    all_poses_vis = []
-
-                    for body in bodies:
+                    camera_index = 0
+                    for k, v in cameras.items():
                         
-                        pose3d = body
-                        # st()
-                        joints = self.joints_to_color(pose3d[:, 0:3], _calib)
-                        # print(joints.shape)
-                        # print(joints)
-                        proj_joints = self.project_pts(joints, _calib)
-                        # print(proj_joints.shape)
-                        # print(proj_joints)
 
-
-                        pose3d = pose3d[:self.num_joints]
-                        proj_joints = proj_joints[:self.num_joints]
-
-                        # st()
-                        # 注意这里因为之前/100这里也/100
-                        joints_vis = pose3d[:, -1] > (0.1 / 100)
-
-                        # 这里再*100来保持原样
-                        all_poses_3d.append(pose3d[:, 0:3] * 10.0 * 100) 
-                        all_poses_vis_3d.append(
-                            np.repeat(
-                                np.reshape(joints_vis, (-1, 1)), 3, axis=1))
-
-                        if not joints_vis[self.root_id]:
-                            continue
-                        
-                        # 计算pose2d
-                        # # Coordinate transformation
-                        # M = np.array([[1.0, 0.0, 0.0],
-                        #               [0.0, 0.0, -1.0],
-                        #               [0.0, 1.0, 0.0]])
-                        # pose3d[:, 0:3] = pose3d[:, 0:3].dot(M)
-
-                        # all_poses_3d.append(pose3d[:, 0:3] * 10.0) 
-                        # all_poses_vis_3d.append(
-                        #     np.repeat(
-                        #         np.reshape(joints_vis, (-1, 1)), 3, axis=1))
-
-                        # pose2d = np.zeros((pose3d.shape[0], 2))
-
-                        # # 2d 坐标是通过投影算出来的，用之前先可视化好
-                        # pose2d[:, :2] = projectPoints(
-                        #     pose3d[:, 0:3].transpose(), v['K'], v['R'],
-                        #     v['t'], v['distCoef']).transpose()[:, :2]
-
-                        pose2d = proj_joints
-
-                        # 只要不超出image就是可见
-                        x_check = np.bitwise_and(pose2d[:, 0] >= 0,
-                                                 pose2d[:, 0] <= width - 1)
-                        y_check = np.bitwise_and(pose2d[:, 1] >= 0,
-                                                 pose2d[:, 1] <= height - 1)
-                        check = np.bitwise_and(x_check, y_check)
-
-                        joints_vis[np.logical_not(check)] = 0
-
-                        all_poses.append(pose2d)
-                        all_poses_vis.append(
-                            np.repeat(
-                                np.reshape(joints_vis, (-1, 1)), 2, axis=1))
-                    
-                    # if len(all_poses_3d) > 0 and len(all_poses) == 0:
-                    #     # 居然会这样
-                    #     st()
-
-                    if len(all_poses_3d) > 0 and len(all_poses) > 0:
-                        our_cam = {}
-                        our_cam['R'] = v['R']
-                        our_cam['T'] = -np.dot(v['R'].T, v['t']) * 10.0  # cm to mm
-                        our_cam['fx'] = np.array(v['K'][0, 0])
-                        our_cam['fy'] = np.array(v['K'][1, 1])
-                        our_cam['cx'] = np.array(v['K'][0, 2])
-                        our_cam['cy'] = np.array(v['K'][1, 2])
-                        our_cam['k'] = v['distCoef'][[0, 1, 4]].reshape(3, 1)
-                        our_cam['p'] = v['distCoef'][[2, 3]].reshape(2, 1)
-
-                        
-                        # 这里检查和panoptic出来的一致性
-                        db.append({
-                            'key': "",
-                            'image': "",
-                            'joints_3d': all_poses_3d,
-                            'joints_3d_vis': all_poses_vis_3d,
-                            'joints_2d': all_poses,
-                            'joints_2d_vis': all_poses_vis,
-                            'camera': our_cam, 
-                            'camera_index': camera_index, # 这之后的是为了读取image和depth的
-                            'depth_index': depth_id_list[camera_index], 
-                            'color_index': color_id_list[camera_index], 
-                            'seq': seq, 
-                            'dataset_name': 'kinoptic'
-                        })
-                        
-                        # print(db[-1]['joints_3d'])
-                        # print(db[-1]['joints_2d'])
-                        # st()
-
-                        # if idx > 11300 and idx % 2 == 0:
-                        #     # if idx > 8000 and idx % 2 == 0:
-                        #     # if idx > 3700 and idx % 2 == 0:
-                        #     # new_shape = (1920 // 4, 1080 // 4)
-                        #     # for vis
-                        #     # img_list_to_show.append(self._color_reader_list[seq][camera_index][color_id_list[camera_index]])
-                        #     print(all_poses)
-                        #     img = self._color_reader_list[seq][camera_index][color_id_list[camera_index]]
-                        #     for a_pose in all_poses:
-                        #         for point_i in range(15):
-                        #             # img = cv.putText(img, '{}'.format(point_i), (int(a_pose[point_i][0]),int(a_pose[point_i][1])), cv.FONT_HERSHEY_COMPLEX, 0.5, (255,255,0), 1)
-                        #             img = cv.circle(img, (int(a_pose[point_i][0]),int(a_pose[point_i][1])), 2, (255, 255, 0), 2)
-                        #             img = cv.putText(img, f'{point_i}', (int(a_pose[point_i][0]),int(a_pose[point_i][1])), 0, 1, (255, 0, 255), 2)
-                        #             img = cv.putText(img, f'idx:{idx}', (30,30), 0, 1, (255, 0, 255), 2)
-
-                        #     cv.namedWindow("color",0)
-                        #     cv.resizeWindow("color", 960, 540)
-                        #     cv.imshow('color', img)
+                        all_poses_3d = []
+                        all_poses_vis_3d = []
+                        all_poses = []
+                        all_poses_vis = []
+                        # 3d joint -> 2d joint
+                        # array([[-109.202   , -146.703   ,    0.73081 ,    0.681366],
+                        # [-109.531   , -166.822   ,  -16.5489  ,    0.664246],
+                        # [-108.344   ,  -91.629   ,    1.34021 ,    0.413544],
+                        # [ -97.9078  , -146.878   ,  -11.9947  ,    0.615387],
+                        # [ -93.9524  , -118.337   ,  -15.5165  ,    0.651825],
+                        # [-102.788   ,  -93.7093  ,  -19.8694  ,    0.635406],
+                        # [-103.064   ,  -91.7136  ,   -7.53898 ,    0.420196],
+                        # [-103.74    ,  -49.1241  ,   -8.26781 ,    0.471039],
+                        # [-102.667   ,   -8.5043  ,   -9.90811 ,    0.6344  ],
+                        # [-121.878   , -147.223   ,   13.6519  ,    0.580506],
+                        # [-125.404   , -118.028   ,   16.9511  ,    0.399444],
+                        # [-132.818   ,  -93.4912  ,    9.92613 ,    0.288025],
+                        # [-113.625   ,  -91.5443  ,   10.2194  ,    0.391907],
+                        # [-113.868   ,  -47.4008  ,    8.62231 ,    0.509888],
+                        # [-114.357   ,   -6.72679 ,   10.5661  ,    0.651703],
+                        # [-106.879   , -170.176   ,  -14.174   ,    0.629914],
+                        # [-103.618   , -168.129   ,   -4.48493 ,    0.571411],
+                        # [-112.644   , -170.398   ,  -14.9105  ,    0.415497],
+                        # [-118.67    , -168.921   ,   -6.39634 ,    0.201447]])
+                        for body in bodies:
                             
-                        #     if 113 == cv.waitKey(100):
-                        #         st()
+                            # 我觉得这里对于pose3d的改变也改变了body，所以在多视角的时候只有第一个视角是对的
+                            # 果然是变了！天哪！
+                            # 1
+                            # [ 1.44041e+02 -1.28982e+02  4.44952e+01  6.25183e-01  1.38594e+02
+                            # -1.43489e+02  2.91097e+01  6.17493e-01  1.46541e+02 -8.64528e+01
+                            # 5.82469e+01  5.44250e-01  1.53823e+02 -1.27412e+02  3.80593e+01
+                            # 5.73059e-01  1.47420e+02 -1.04368e+02  4.18614e+01  3.98804e-01
+                            # 1.32429e+02 -1.14710e+02  3.30617e+01  2.49939e-01  1.53692e+02
+                            # -8.53041e+01  5.40476e+01  5.07446e-01  1.50002e+02 -4.86249e+01
+                            # 5.02555e+01  5.32166e-01  1.54491e+02 -1.00227e+01  5.07923e+01
+                            # 5.06165e-01  1.32163e+02 -1.30464e+02  4.95971e+01  6.06079e-01
+                            # 1.33064e+02 -1.03642e+02  4.97073e+01  5.00916e-01  1.26388e+02
+                            # -9.74391e+01  3.16178e+01  4.18091e-01  1.39390e+02 -8.76015e+01
+                            # 6.24462e+01  5.23682e-01  1.32146e+02 -5.24725e+01  5.35686e+01
+                            # 5.47180e-01  1.33518e+02 -1.24042e+01  6.06574e+01  5.48035e-01
+                            # 1.41653e+02 -1.46690e+02  2.89937e+01  3.20740e-01  1.49177e+02
+                            # -1.43011e+02  3.43536e+01  1.05774e-01  1.37161e+02 -1.46736e+02
+                            # 3.14794e+01  5.80505e-01  1.36980e+02 -1.44714e+02  3.98771e+01
+                            # 5.84045e-01]
+                            # 2
+                            # [ 1.44041e+02  4.44952e+01  1.28982e+02  6.25183e-01  1.38594e+02
+                            # 2.91097e+01  1.43489e+02  6.17493e-01  1.46541e+02  5.82469e+01
+                            # 8.64528e+01  5.44250e-01  1.53823e+02  3.80593e+01  1.27412e+02
+                            # 5.73059e-01  1.47420e+02  4.18614e+01  1.04368e+02  3.98804e-01
+                            # 1.32429e+02  3.30617e+01  1.14710e+02  2.49939e-01  1.53692e+02
+                            # 5.40476e+01  8.53041e+01  5.07446e-01  1.50002e+02  5.02555e+01
+                            # 4.86249e+01  5.32166e-01  1.54491e+02  5.07923e+01  1.00227e+01
+                            # 5.06165e-01  1.32163e+02  4.95971e+01  1.30464e+02  6.06079e-01
+                            # 1.33064e+02  4.97073e+01  1.03642e+02  5.00916e-01  1.26388e+02
+                            # 3.16178e+01  9.74391e+01  4.18091e-01  1.39390e+02  6.24462e+01
+                            # 8.76015e+01  5.23682e-01  1.32146e+02  5.35686e+01  5.24725e+01
+                            # 5.47180e-01  1.33518e+02  6.06574e+01  1.24042e+01  5.48035e-01
+                            # 1.41653e+02 -1.46690e+02  2.89937e+01  3.20740e-01  1.49177e+02
+                            # -1.43011e+02  3.43536e+01  1.05774e-01  1.37161e+02 -1.46736e+02
+                            # 3.14794e+01  5.80505e-01  1.36980e+02 -1.44714e+02  3.98771e+01
+                            # 5.84045e-01]
 
+                            # print('1\n', body)
 
-            # ###### voxelpose投影的代码中只有少量view正确
-            # # for vis
-            # # img_list_to_show = []
-            # # 在db中存数据需要保证每次存储的，要么是连续的num_view个要么是0个，不能出现其他数字否则会乱掉
-            # for k, v in cameras.items():
-                
+                            body_tmp = copy.deepcopy(body)
 
-            #     all_poses_3d = []
-            #     all_poses_vis_3d = []
-            #     all_poses = []
-            #     all_poses_vis = []
-            #     # 3d joint -> 2d joint
-            #     # array([[-109.202   , -146.703   ,    0.73081 ,    0.681366],
-            #     # [-109.531   , -166.822   ,  -16.5489  ,    0.664246],
-            #     # [-108.344   ,  -91.629   ,    1.34021 ,    0.413544],
-            #     # [ -97.9078  , -146.878   ,  -11.9947  ,    0.615387],
-            #     # [ -93.9524  , -118.337   ,  -15.5165  ,    0.651825],
-            #     # [-102.788   ,  -93.7093  ,  -19.8694  ,    0.635406],
-            #     # [-103.064   ,  -91.7136  ,   -7.53898 ,    0.420196],
-            #     # [-103.74    ,  -49.1241  ,   -8.26781 ,    0.471039],
-            #     # [-102.667   ,   -8.5043  ,   -9.90811 ,    0.6344  ],
-            #     # [-121.878   , -147.223   ,   13.6519  ,    0.580506],
-            #     # [-125.404   , -118.028   ,   16.9511  ,    0.399444],
-            #     # [-132.818   ,  -93.4912  ,    9.92613 ,    0.288025],
-            #     # [-113.625   ,  -91.5443  ,   10.2194  ,    0.391907],
-            #     # [-113.868   ,  -47.4008  ,    8.62231 ,    0.509888],
-            #     # [-114.357   ,   -6.72679 ,   10.5661  ,    0.651703],
-            #     # [-106.879   , -170.176   ,  -14.174   ,    0.629914],
-            #     # [-103.618   , -168.129   ,   -4.48493 ,    0.571411],
-            #     # [-112.644   , -170.398   ,  -14.9105  ,    0.415497],
-            #     # [-118.67    , -168.921   ,   -6.39634 ,    0.201447]])
-            #     for body in bodies:
+                            pose3d = body_tmp.reshape((-1, 4))
+
+                            # print(pose3d)
+
+                            pose3d = pose3d[:self.num_joints]
+                            joints_vis = pose3d[:, -1] > 0.1
+                            if not joints_vis[self.root_id]:
+                                continue
+                            # Coordinate transformation
+                            M = np.array([[1.0, 0.0, 0.0],
+                                          [0.0, 0.0, -1.0],
+                                          [0.0, 1.0, 0.0]])
+                            # 故意搞错看看  
+                            pose3d[:, 0:3] = pose3d[:, 0:3].dot(M)
+
+                            # print('2\n', body)
+
+                            all_poses_3d.append(pose3d[:, 0:3] * 10.0)
+                            all_poses_vis_3d.append(
+                                np.repeat(
+                                    np.reshape(joints_vis, (-1, 1)), 3, axis=1))
+                            pose2d = np.zeros((pose3d.shape[0], 2))
+                            # 2d 坐标是通过投影算出来的，用之前先可视化好
+                            pose2d[:, :2] = projectPoints(
+                                pose3d[:, 0:3].transpose(), v['K'], v['R'],
+                                v['t'], v['distCoef']).transpose()[:, :2]
+                            # 只要不超出image就是可见
+                            x_check = np.bitwise_and(pose2d[:, 0] >= 0,
+                                                     pose2d[:, 0] <= width - 1)
+                            y_check = np.bitwise_and(pose2d[:, 1] >= 0,
+                                                     pose2d[:, 1] <= height - 1)
+                            check = np.bitwise_and(x_check, y_check)
+                            joints_vis[np.logical_not(check)] = 0
+                            all_poses.append(pose2d)
+                            all_poses_vis.append(
+                                np.repeat(
+                                    np.reshape(joints_vis, (-1, 1)), 2, axis=1))
+                        
+                        if len(all_poses_3d) > 0:
+                            our_cam = {}
+                            our_cam['R'] = v['R']
+                            our_cam['T'] = -np.dot(v['R'].T, v['t']) * 10.0  # cm to mm
+                            our_cam['fx'] = np.array(v['K'][0, 0])
+                            our_cam['fy'] = np.array(v['K'][1, 1])
+                            our_cam['cx'] = np.array(v['K'][0, 2])
+                            our_cam['cy'] = np.array(v['K'][1, 2])
+                            our_cam['k'] = v['distCoef'][[0, 1, 4]].reshape(3, 1)
+                            our_cam['p'] = v['distCoef'][[2, 3]].reshape(2, 1)
+                            # st()
+                            # camera_index = k[1] - 1 
+                            # st()
+                            db.append({
+                                'key': "",
+                                'image': "",
+                                'joints_3d': all_poses_3d,
+                                'joints_3d_vis': all_poses_vis_3d,
+                                'joints_2d': all_poses,
+                                'joints_2d_vis': all_poses_vis,
+                                'camera': our_cam, 
+                                'camera_index': camera_index, # 这之后的是为了读取image和depth的
+                                'depth_index': depth_id_list[camera_index], 
+                                'color_index': color_id_list[camera_index], 
+                                'seq': seq, 
+                                'dataset_name': 'kinoptic'
+                            })
+
+                            # if idx % 1 == 0:
+                            #     # if idx > 8000 and idx % 2 == 0:
+                            #     # if idx > 3700 and idx % 2 == 0:
+                            #     # new_shape = (1920 // 4, 1080 // 4)
+                            #     # for vis
+                            #     # img_list_to_show.append(self._color_reader_list[seq][camera_index][color_id_list[camera_index]])
+                            #     print(all_poses)
+                            #     print('\n')
+                            #     img = self._color_reader_list[seq][camera_index][color_id_list[camera_index]]
+                            #     for a_pose in all_poses:
+                            #         for point_i in range(15):
+                            #             # img = cv.putText(img, '{}'.format(point_i), (int(a_pose[point_i][0]),int(a_pose[point_i][1])), cv.FONT_HERSHEY_COMPLEX, 0.5, (255,255,0), 1)
+                            #             img = cv.circle(img, (int(a_pose[point_i][0]),int(a_pose[point_i][1])), 2, (255, 255, 0), 2)
+                            #             img = cv.putText(img, f'{point_i}', (int(a_pose[point_i][0]),int(a_pose[point_i][1])), 0, 1, (255, 0, 255), 2)
+                            #             img = cv.putText(img, f'idx:{idx}', (30,30), 0, 1, (255, 0, 255), 2)
+
+                            #     cv.namedWindow("color",0)
+                            #     cv.resizeWindow("color", 960, 540)
+                            #     cv.imshow('color', img)
+                                
+                            #     if 113 == cv.waitKey(100):
+                            #         st()
+                        
+                        camera_index += 1
                     
-                    
-            #         pose3d = body.reshape((-1, 4))
-
-            #         print(pose3d)
-
-            #         pose3d = pose3d[:self.num_joints]
-            #         joints_vis = pose3d[:, -1] > 0.1
-            #         if not joints_vis[self.root_id]:
-            #             continue
-            #         # Coordinate transformation
-            #         M = np.array([[1.0, 0.0, 0.0],
-            #                       [0.0, 0.0, -1.0],
-            #                       [0.0, 1.0, 0.0]])
-            #         pose3d[:, 0:3] = pose3d[:, 0:3].dot(M)
-            #         all_poses_3d.append(pose3d[:, 0:3] * 10.0)
-            #         all_poses_vis_3d.append(
-            #             np.repeat(
-            #                 np.reshape(joints_vis, (-1, 1)), 3, axis=1))
-            #         pose2d = np.zeros((pose3d.shape[0], 2))
-            #         # 2d 坐标是通过投影算出来的，用之前先可视化好
-            #         pose2d[:, :2] = projectPoints(
-            #             pose3d[:, 0:3].transpose(), v['K'], v['R'],
-            #             v['t'], v['distCoef']).transpose()[:, :2]
-            #         # 只要不超出image就是可见
-            #         x_check = np.bitwise_and(pose2d[:, 0] >= 0,
-            #                                  pose2d[:, 0] <= width - 1)
-            #         y_check = np.bitwise_and(pose2d[:, 1] >= 0,
-            #                                  pose2d[:, 1] <= height - 1)
-            #         check = np.bitwise_and(x_check, y_check)
-            #         joints_vis[np.logical_not(check)] = 0
-            #         all_poses.append(pose2d)
-            #         all_poses_vis.append(
-            #             np.repeat(
-            #                 np.reshape(joints_vis, (-1, 1)), 2, axis=1))
-            #     if len(all_poses_3d) > 0:
-            #         our_cam = {}
-            #         our_cam['R'] = v['R']
-            #         our_cam['T'] = -np.dot(v['R'].T, v['t']) * 10.0  # cm to mm
-            #         our_cam['fx'] = np.array(v['K'][0, 0])
-            #         our_cam['fy'] = np.array(v['K'][1, 1])
-            #         our_cam['cx'] = np.array(v['K'][0, 2])
-            #         our_cam['cy'] = np.array(v['K'][1, 2])
-            #         our_cam['k'] = v['distCoef'][[0, 1, 4]].reshape(3, 1)
-            #         our_cam['p'] = v['distCoef'][[2, 3]].reshape(2, 1)
-            #         # st()
-            #         camera_index = k[1] - 1 
-            #         # st()
-            #         db.append({
-            #             'key': "",
-            #             'image': "",
-            #             'joints_3d': all_poses_3d,
-            #             'joints_3d_vis': all_poses_vis_3d,
-            #             'joints_2d': all_poses,
-            #             'joints_2d_vis': all_poses_vis,
-            #             'camera': our_cam, 
-            #             'camera_index': camera_index, # 这之后的是为了读取image和depth的
-            #             'depth_index': depth_id_list[camera_index], 
-            #             'color_index': color_id_list[camera_index], 
-            #             'seq': seq, 
-            #             'dataset_name': 'kinoptic'
-            #         })
-                    
-            #         # new_shape = (1920 // 4, 1080 // 4)
-            #         # for vis
-            #         # img_list_to_show.append(self._color_reader_list[seq][camera_index][color_id_list[camera_index]])
-            #         print(all_poses)
-            #         img = self._color_reader_list[seq][camera_index][color_id_list[camera_index]]
-            #         for a_pose in all_poses:
-            #             for point_i in range(15):
-            #                 img = cv.putText(img, '{}'.format(point_i), (int(a_pose[point_i][0]),int(a_pose[point_i][1])), cv.FONT_HERSHEY_COMPLEX, 0.5, (255,255,0), 1)
-            #         cv.namedWindow("color",0)
-            #         cv.resizeWindow("color", 960, 540)
-            #         cv.imshow('color', img)
-                    
-            #         if 113 == cv.waitKey(100):
-            #             st()
-
-            # for vis
-            # 感觉没有太大问题
-            # st()
-            # show = np.concatenate(img_list_to_show, axis=1)
-            # cv.namedWindow("color",0)
-            # cv.resizeWindow("color", 1920, 540)
-            # cv.imshow('color', show)
-            # if 113 == cv.waitKey(10):
-            #     st()
+                    # for vis
+                    # 感觉没有太大问题
+                    # st()
+                    # show = np.concatenate(img_list_to_show, axis=1)
+                    # cv.namedWindow("color",0)
+                    # cv.resizeWindow("color", 1920, 540)
+                    # cv.imshow('color', show)
+                    # if 113 == cv.waitKey(10):
+                    #     st()
 
         return db
 
@@ -822,16 +959,20 @@ class SyncReader:
         joints_file = os.listdir(joint_dir)
         for joint in sorted(joints_file):
             with open(path.join(joint_dir, joint)) as f:
-                data = json.load(f)
-                time = data['univTime']
-                bodies = data['bodies']
-                if len(bodies) == 0:
-                    continue
-                
-                # 这里bodies只取第0个人，改为取list
-                # bodies = np.array(bodies[0]['joints19'])
-                bodies = [np.array(bodies[index]['joints19']) for index in range(len(bodies))] 
-                timed_bodies[time] = bodies
+                try:
+                    data = json.load(f)
+                    time = data['univTime']
+                    bodies = data['bodies']
+                    if len(bodies) == 0:
+                        continue
+                    # 这里bodies只取第0个人，改为取list
+                    # bodies = np.array(bodies[0]['joints19'])
+                    bodies = [np.array(bodies[index]['joints19']) for index in range(len(bodies))] 
+                    timed_bodies[time] = bodies
+                except:
+                    print(f'error occurs while processing {path.join(joint_dir, joint)}, skipping...: ')
+                    
+
         
         # (Pdb) len(timed_bodies)
         # 26603
@@ -852,12 +993,9 @@ class SyncReader:
         bodies, did, cid = self._bodies_idx[idx]
         
         # panoptic-dataset-tools
-        bodies = list(map(lambda body: np.array(body).reshape(-1, 4) / 100, bodies))
+        # bodies = list(map(lambda body: np.array(body).reshape(-1, 4) / 100, bodies))
 
         # 注意这里panoptic-dataset-tools处理先/100了
-
-        # bodies = np.array(bodies).reshape(-1, 4)[:, :3] / 100
-        # st()
 
         return bodies, did, cid
 
@@ -992,6 +1130,7 @@ class DepthReader:
         return np.array(frame).reshape(DepthReader.shape[0], DepthReader.shape[1])
 
 
+# videocapture不能用多线程读同一个video，只能拆分成image
 class ColorReader:
     def __init__(self, color_file) -> None:
         self._frames = cv.VideoCapture(color_file) 

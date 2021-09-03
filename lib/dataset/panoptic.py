@@ -35,7 +35,24 @@ TRAIN_LIST = [
     '160906_band2',
     '160906_band3',
 ]
-VAL_LIST = ['160906_pizza1', '160422_haggling1', '160906_ian5', '160906_band4']
+# VAL_LIST = ['160906_pizza1', '160422_haggling1', '160906_ian5', '160906_band4']
+VAL_LIST = ['160906_pizza1', '160422_haggling1', '160906_ian5']
+
+
+# # 试一下kinoptic挑出来的
+# TRAIN_LIST = [
+#     '160422_ultimatum1',
+#     '160224_haggling1',
+#     '160226_haggling1',
+#     '161202_haggling1',
+#     '160906_ian1',
+#     '160906_ian2',
+#     '160906_ian3',
+#     '160906_band1',
+#     '160906_band2'
+# ]
+# VAL_LIST = ['160906_band3', '160906_pizza1', '160906_ian5']
+
 
 JOINTS_DEF = {
     'neck': 0,
@@ -219,6 +236,33 @@ class Panoptic(JointsDataset):
                             # print(db[-1]['joints_3d'])
                             # print(db[-1]['joints_2d'])
                             # st()
+
+                            
+                            # 投影没问题，那为什么kinectrgb投影有问题呢？
+                            # if idx > 8000 and idx % 2 == 0:
+                            # if idx > 3700 and idx % 2 == 0:
+                            # new_shape = (1920 // 4, 1080 // 4)
+                            # for vis
+                            # img_list_to_show.append(self._color_reader_list[seq][camera_index][color_id_list[camera_index]])
+                            # import cv2 as cv
+                            # print(all_poses)
+                            # # st()
+                            # img = cv.imread(osp.join(self.dataset_root, image), cv.IMREAD_COLOR | cv.IMREAD_IGNORE_ORIENTATION)
+                            # for a_pose in all_poses:
+                            #     for point_i in range(15):
+                            #         # img = cv.putText(img, '{}'.format(point_i), (int(a_pose[point_i][0]),int(a_pose[point_i][1])), cv.FONT_HERSHEY_COMPLEX, 0.5, (255,255,0), 1)
+                            #         img = cv.circle(img, (int(a_pose[point_i][0]),int(a_pose[point_i][1])), 2, (255, 255, 0), 2)
+                            #         img = cv.putText(img, f'{point_i}', (int(a_pose[point_i][0]),int(a_pose[point_i][1])), 0, 1, (255, 0, 255), 2)
+                            #         # img = cv.putText(img, f'idx:{idx}', (30,30), 0, 1, (255, 0, 255), 2)
+
+                            # cv.namedWindow("color",0)
+                            # cv.resizeWindow("color", 960, 540)
+                            # cv.imshow('color', img)
+                            
+                            # if 113 == cv.waitKey(100):
+                            #     st()
+
+
         return db
 
     def _get_cam(self, seq):

@@ -8,25 +8,25 @@ DATA_DIR: ''
 GPUS: '0'
 OUTPUT_DIR: 'output'
 LOG_DIR: 'log'
-WORKERS: 4
+WORKERS: 8
 PRINT_FREQ: 100
 
 DATASET:
   COLOR_RGB: True
-  TRAIN_DATASET: 'panoptic'
-  TEST_DATASET: 'panoptic'
+  TRAIN_DATASET: 'kinoptic'
+  TEST_DATASET: 'kinoptic'
   DATA_FORMAT: jpg
   DATA_AUGMENTATION: False
   FLIP: False
-  ROOT: 'data/panoptic-toolbox/data_script/' # 'data/panoptic/'
+  ROOT: 'data/panoptic-toolbox/data/' # 'data/panoptic/'
   ROT_FACTOR: 45
   SCALE_FACTOR: 0.35
   TEST_SUBSET: 'validation'
   TRAIN_SUBSET: 'train'
   ROOTIDX: 2
-  CAMERA_NUM: 4
+  CAMERA_NUM: 3
 NETWORK:
-  PRETRAINED_BACKBONE: "models/pose_resnet50_panoptic.pth.tar"
+  PRETRAINED_BACKBONE: "models/pose_resnet50_panoptic.pth.tar" ### 看看要不要重新pretrain在kinoptic
   PRETRAINED:  ''  # 'models/pytorch/imagenet/resnet50-19c8e357.pth'
   TARGET_TYPE: gaussian
   IMAGE_SIZE:
@@ -69,7 +69,7 @@ DEBUG:
   SAVE_HEATMAPS_GT: true
   SAVE_HEATMAPS_PRED: true
 MULTI_PERSON:
-  SPACE_SIZE:
+  SPACE_SIZE: # 这个是实际的大小单位mm
     - 8000.0
     - 8000.0
     - 2000.0
@@ -77,7 +77,7 @@ MULTI_PERSON:
     - 0.0 # 120.0
     - -500.0 # -600.0
     - 800.0
-  INITIAL_CUBE_SIZE:
+  INITIAL_CUBE_SIZE: # 离散的大小
     - 80
     - 80
     - 20

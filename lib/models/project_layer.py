@@ -152,6 +152,23 @@ def generate_3d_weightmap(space_size, space_center, initial_cube_size, joints_3d
     target = np.clip(target, 0, 1)
     return target
 
+
+import cv2 as cv
+# rgb内参
+def project_pts(cloud, calib):
+    K, d = calib.color_proj()
+    proj_pts, _ = cv.projectPoints(cloud, np.zeros(3), np.zeros(3), K, d)
+    proj_pts = proj_pts.reshape(-1, 2)
+    return proj_pts
+
+# 世界坐标系到相机坐标系
+def joints_to_color(joints, calib):
+    R, t = calib.joints_k_color()
+    joints = joints[:, :3]
+    joints = joints @ np.linalg.inv(R) + t.reshape(1, 3)
+    return joints
+
+
 # 关于grid和cube的理解
 # cube是整个的空间，是把世界空间离散化之后的，人可以活动的全部的范围
 # 对于cpn和prn中的cube都是全部的空间，只不过离散的粒度不一样罢了
@@ -243,8 +260,53 @@ class ProjectLayer(nn.Module):
                     for k, v in meta[c]['camera'].items():
                         cam[k] = v[i]
                     
-                    xy = cameras.project_pose(grid, cam)
+                    ### 这个有可能是万恶之源
+                    # (Pdb) xy.shape
+                    # torch.Size([128000, 2])
+                    # (Pdb) grid.shape
+                    # torch.Size([128000, 3])
 
+                    xy = cameras.project_pose(grid, cam)
+                    # tensor([[1689.0734,   76.5324],
+                    #         [1689.0284,  114.4259],
+                    #         [1688.9335,  152.3425],
+                    #         ...,
+                    #         [1248.0789,  450.4740],
+                    #         [1248.1432,  435.6599],
+                    #         [1248.2118,  420.8386]], device='cuda:0')
+
+                    # panoptic-dataset-tool投影不行
+                    # import pickle
+                    # with open('calib_list.pkl','rb') as calib_list_f:
+                    #     calib_list = pickle.load(calib_list_f)
+
+                    # M = np.array([[1.0, 0.0, 0.0],
+                    #             [0.0, 0.0, -1.0],
+                    #             [0.0, 1.0, 0.0]])
+                    # grid_tmp = grid.detach().cpu().numpy() * 0.0001
+                    # grid_tmp = grid_tmp.dot(np.linalg.inv(M))
+
+                    # joints = joints_to_color(grid_tmp, calib_list[meta[c]['seq'][i]][meta[c]['camera_index'][i]])
+                    
+                    # # print(joints.shape)
+                    # # print(joints)
+                    # proj_joints = project_pts(joints, calib_list[meta[c]['seq'][i]][meta[c]['camera_index'][i]])
+                    
+                    # xy = torch.as_tensor(proj_joints, dtype=torch.float, device=device)
+                    
+                    #3
+                    # import pickle
+                    # with open('calib_list2.pkl','rb') as calib_list_f2:
+                    #     calib_list2 = pickle.load(calib_list_f2)
+                    
+                    # calib2 = calib_list2[meta[c]['seq'][i]][(50, int(meta[c]['camera_index'][i])+1)]
+
+                    # from utils.transforms import projectPoints
+                    
+                    # xy_3 = projectPoints((grid.detach().cpu().numpy()*0.1).transpose(), calib2['K'], calib2['R'],calib2['t'], calib2['distCoef']).transpose()[:, :2]
+                    # st()
+                    # 结果是xy_3完全等于xy，然后除了第一个batch之外其他的都是ok的纳尼
+                    
                     bounding[i, 0, 0, :, c] = (xy[:, 0] >= 0) & (xy[:, 1] >= 0) & (xy[:, 0] < width) & (
                                 xy[:, 1] < height)
                     xy = torch.clamp(xy, -1.0, max(width, height))
@@ -326,8 +388,8 @@ class ProjectLayer(nn.Module):
                         
                         # 投影到你算好的uv->3d point cloud上面去
 
-                            
-                        cloud = meta[c]['cloud'].permute(0,3,1,2).float() * 100
+                        # st()
+                        cloud = meta[c]['cloud'][i].unsqueeze(0).permute(0,3,1,2).float() * 100
                         
                         # print(cloud[:,0,:,:].max(), cloud[:,1,:,:].max(), cloud[:,2,:,:].max())
                         # print(cloud[:,0,:,:].min(), cloud[:,1,:,:].min(), cloud[:,2,:,:].min())
@@ -348,6 +410,15 @@ class ProjectLayer(nn.Module):
                         cubes[i:i + 1, :, :, :, c] += F.grid_sample(heatmaps[c][i:i + 1, :, :, :], sample_grid, align_corners=True) * weight_all
                     else:
                         cubes[i:i + 1, :, :, :, c] += F.grid_sample(heatmaps[c][i:i + 1, :, :, :], sample_grid, align_corners=True)
+        
+        # 验证一下投影的对不对，看看joint的位置cube值是否最大
+        # 这样算的不对，难道这两个坐标不是一样的吗
+        # for jj in range(15):
+        #     st()
+        #     # 第jj个joint，下面输出多个表示多个人
+        #     print(meta[0]['joints_3d'][i,:,jj,:])
+        #     print(grid[cubes[:,jj,:,:,:].argmax(),:])
+            
 
         # cubes = cubes.mean(dim=-1)
         cubes = torch.sum(torch.mul(cubes, bounding), dim=-1) / (torch.sum(bounding, dim=-1) + 1e-6)
