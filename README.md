@@ -18,6 +18,13 @@ Based on the official implementation for:
 ## Demo
 [![demo](https://res.cloudinary.com/marcomontalbano/image/upload/v1689228270/video_to_markdown/images/youtube--vcRxKtG7jWI-c05b58ac6eb4c4700831b2b3070cd403.jpg)](https://www.youtube.com/watch?v=vcRxKtG7jWI "demo")
 
+## Arch
+![image text](https://github.com/kkiritoo/voxelpose-mono/blob/main/imgs/fig4.png "Arch")
+
+
+## FVR
+![image text](https://github.com/kkiritoo/voxelpose-mono/blob/main/imgs/fig1.png "illustration of FVR")
+
 
 ## Installation
 1. Clone this repo, and we'll call the directory that you cloned multiview-multiperson-pose as ${POSE_ROOT}.
