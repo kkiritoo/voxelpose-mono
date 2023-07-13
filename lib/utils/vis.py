@@ -115,6 +115,270 @@ def save_batch_heatmaps_multi(batch_image, batch_heatmaps, file_name, normalize=
 
     cv2.imwrite(file_name, grid_image)
 
+### for vis
+def save_batch_heatmaps_multi_gt_pred_lcc(batch_image, batch_heatmaps_gt, batch_heatmaps_pred, prefix, normalize=True):
+    '''
+    batch_image: [batch_size, channel, height, width]
+    batch_heatmaps: ['batch_size, num_joints, height, width]
+    file_name: saved file name
+    '''
+    # st()
+    file_name_rgb = prefix + "_rgb.png"
+    file_name_hm_gt = prefix + "_hm_gt.png"
+    file_name_hm_pred = prefix + "_hm_pred.png"
+
+    file_name = prefix + "_rgb_hmpred_hmgt.png"
+
+
+    if normalize:
+        batch_image = batch_image.clone()
+        min = float(batch_image.min())
+        max = float(batch_image.max())
+
+        batch_image.add_(-min).div_(max - min + 1e-5)
+    batch_image = batch_image.flip(1)
+
+    batch_size = batch_heatmaps_pred.size(0)
+    num_joints = batch_heatmaps_pred.size(1)
+
+    # heatmap_height = batch_heatmaps_pred.size(2)
+    # heatmap_width = batch_heatmaps_pred.size(3)
+
+    rgb_height = batch_image.size(2)
+    rgb_width = batch_image.size(3)
+
+    grid_image = np.zeros(
+        (batch_size * rgb_height, (1 + 1 + 1) * rgb_width, 3),
+        dtype=np.uint8)
+
+    ### 默认batchsize=1
+    
+    for i in range(batch_size):
+        image = batch_image[i].mul(255)\
+                              .clamp(0, 255)\
+                              .byte()\
+                              .permute(1, 2, 0)\
+                              .cpu().numpy()
+
+        ##### pred                  
+        heatmaps = batch_heatmaps_pred[i].mul(255)\
+                                    .clamp(0, 255)\
+                                    .byte()\
+                                    .cpu().numpy()
+
+        # resized_image = cv2.resize(image,
+        #                            (int(rgb_width), int(rgb_height)))                 
+        # st()
+
+        height_begin = rgb_height * i
+        height_end = rgb_height * (i + 1)
+
+        heatmap_all = np.zeros_like(heatmaps[0, :, :])
+        for j in range(num_joints):
+            heatmap = heatmaps[j, :, :]
+            heatmap_all = np.maximum(heatmap_all, heatmap)
+
+        colored_heatmap = cv2.applyColorMap(heatmap_all, cv2.COLORMAP_JET)
+        resized_hm = cv2.resize(colored_heatmap,
+                                   (int(rgb_width), int(rgb_height)))     
+
+        masked_image = resized_hm * 0.7 + image * 0.3
+        masked_image = cv2.putText(masked_image, "pred_hm", (50,50), 0, 1.5, (0,255,0), 2)
+
+
+
+        width_begin = rgb_width * 1
+        width_end = rgb_width * 2
+        # st()
+        grid_image[height_begin:height_end, width_begin:width_end, :] = masked_image
+        # grid_image[height_begin:height_end, width_begin:width_end, :] = \
+        #     colored_heatmap*0.7 + resized_image*0.3
+
+        grid_image[height_begin:height_end, 0:rgb_width, :] = image
+
+        ##### gt                  
+        heatmaps = batch_heatmaps_gt[i].mul(255)\
+                                    .clamp(0, 255)\
+                                    .byte()\
+                                    .cpu().numpy()
+
+        # resized_image = cv2.resize(image,
+        #                            (int(rgb_width), int(rgb_height)))                 
+        # st()
+
+        height_begin = rgb_height * i
+        height_end = rgb_height * (i + 1)
+
+        heatmap_all = np.zeros_like(heatmaps[0, :, :])
+        for j in range(num_joints):
+            heatmap = heatmaps[j, :, :]
+            heatmap_all = np.maximum(heatmap_all, heatmap)
+
+        colored_heatmap = cv2.applyColorMap(heatmap_all, cv2.COLORMAP_JET)
+        resized_hm = cv2.resize(colored_heatmap,
+                                   (int(rgb_width), int(rgb_height)))     
+
+        masked_image = resized_hm * 0.7 + image * 0.3
+        masked_image = cv2.putText(masked_image, "gt_hm", (50,50), 0, 1.5, (0,255,0), 2)
+
+        width_begin = rgb_width * 2
+        width_end = rgb_width * 3
+        # st()
+        grid_image[height_begin:height_end, width_begin:width_end, :] = masked_image
+        # grid_image[height_begin:height_end, width_begin:width_end, :] = \
+        #     colored_heatmap*0.7 + resized_image*0.3
+
+        # grid_image[height_begin:height_end, 0:rgb_width, :] = image
+
+    
+    cv2.imwrite(file_name, grid_image)
+    # st()
+
+### for lunwen
+def save_batch_heatmaps_multi_gt_pred_lcc2(batch_image, batch_heatmaps_gt, batch_heatmaps_pred, prefix, normalize=True):
+    '''
+    batch_image: [batch_size, channel, height, width]
+    batch_heatmaps: ['batch_size, num_joints, height, width]
+    file_name: saved file name
+    '''
+    # st()
+    file_name_rgb = prefix + "_rgb.png"
+    file_name_hm_gt = prefix + "_hm_gt.png"
+    file_name_hm_pred = prefix + "_hm_pred.png"
+
+    file_name = prefix + "_rgb_hmpred_hmgt.png"
+
+
+    if normalize:
+        batch_image = batch_image.clone()
+        min = float(batch_image.min())
+        max = float(batch_image.max())
+
+        batch_image.add_(-min).div_(max - min + 1e-5)
+    batch_image = batch_image.flip(1)
+
+    batch_size = batch_heatmaps_pred.size(0)
+    num_joints = batch_heatmaps_pred.size(1)
+
+    # heatmap_height = batch_heatmaps_pred.size(2)
+    # heatmap_width = batch_heatmaps_pred.size(3)
+
+    rgb_height = batch_image.size(2)
+    rgb_width = batch_image.size(3)
+
+    grid_image = np.zeros(
+        (batch_size * rgb_height, (1 + 1 + 1) * rgb_width, 3),
+        dtype=np.uint8)
+
+    ### 默认batchsize=1
+    
+    for i in range(batch_size):
+        image = batch_image[i].mul(255)\
+                              .clamp(0, 255)\
+                              .byte()\
+                              .permute(1, 2, 0)\
+                              .cpu().numpy()
+
+        ##### pred                  
+        # heatmaps = batch_heatmaps_pred[i].mul(255)\
+        #                             .clamp(0, 255)\
+        #                             .byte()\
+        #                             .cpu().numpy()
+
+        heatmaps = batch_heatmaps_gt[i].mul(255)\
+                                    .clamp(0, 255)\
+                                    .byte()\
+                                    .cpu().numpy()
+
+
+        # resized_image = cv2.resize(image,
+        #                            (int(rgb_width), int(rgb_height)))                 
+        # st()
+
+        height_begin = rgb_height * i
+        height_end = rgb_height * (i + 1)
+
+        heatmap_all = np.zeros_like(heatmaps[0, :, :])
+        for j in range(num_joints):
+            heatmap = heatmaps[j, :, :]
+            heatmap_all = np.maximum(heatmap_all, heatmap)
+        
+        ### l_shoulder
+        # heatmap_all = heatmaps[3, :, :]
+
+
+        colored_heatmap = cv2.applyColorMap(heatmap_all, cv2.COLORMAP_JET)
+        resized_hm = cv2.resize(colored_heatmap,
+                                   (int(rgb_width), int(rgb_height)))     
+
+        masked_image = resized_hm * 0.5
+
+        for masked_image_i in range(masked_image.shape[0]):
+            for masked_image_j in range(masked_image.shape[1]):
+                # st()
+                if (masked_image[masked_image_i, masked_image_j] == [64.,  0.,  0.]).sum() == 3:
+                    masked_image[masked_image_i, masked_image_j] = [255, 255, 255]
+
+
+        # st()
+        # masked_image = cv2.putText(masked_image, "1", (50,50), 0, 1.5, (0,255,0), 2)
+
+
+        width_begin = rgb_width * 1
+        width_end = rgb_width * 2
+        # st()
+        grid_image[height_begin:height_end, width_begin:width_end, :] = masked_image
+        # grid_image[height_begin:height_end, width_begin:width_end, :] = \
+        #     colored_heatmap*0.7 + resized_image*0.3
+
+        grid_image[height_begin:height_end, 0:rgb_width, :] = image
+
+        ##### gt                  
+        heatmaps = batch_heatmaps_gt[i].mul(255)\
+                                    .clamp(0, 255)\
+                                    .byte()\
+                                    .cpu().numpy()
+
+        # resized_image = cv2.resize(image,
+        #                            (int(rgb_width), int(rgb_height)))                 
+        # st()
+
+        height_begin = rgb_height * i
+        height_end = rgb_height * (i + 1)
+
+        heatmap_all = np.zeros_like(heatmaps[0, :, :])
+
+        # for j in range(num_joints):
+        #     heatmap = heatmaps[j, :, :]
+        #     heatmap_all = np.maximum(heatmap_all, heatmap)
+        
+        ### l_shoulder
+        heatmap_all = heatmaps[3, :, :]
+
+
+        colored_heatmap = cv2.applyColorMap(heatmap_all, cv2.COLORMAP_JET)
+        resized_hm = cv2.resize(colored_heatmap,
+                                   (int(rgb_width), int(rgb_height)))     
+
+        masked_image = resized_hm * 0.5 + image * 0.5
+        # masked_image = cv2.putText(masked_image, "2", (50,50), 0, 1.5, (0,255,0), 2)
+
+
+        
+
+
+        width_begin = rgb_width * 2
+        width_end = rgb_width * 3
+        # st()
+        grid_image[height_begin:height_end, width_begin:width_end, :] = masked_image
+        # grid_image[height_begin:height_end, width_begin:width_end, :] = \
+        #     colored_heatmap*0.7 + resized_image*0.3
+
+        # grid_image[height_begin:height_end, 0:rgb_width, :] = image
+
+    
+    cv2.imwrite(file_name, grid_image)
+    # st()
 
 def save_debug_images_multi(config, input, meta, target, output, prefix):
     if not config.DEBUG.DEBUG:
@@ -156,6 +420,166 @@ LIMBS14 = [[0, 1], [1, 2], [3, 4], [4, 5], [2, 3], [6, 7], [7, 8], [9, 10],
           [10, 11], [2, 8], [3, 9], [8, 12], [9, 12], [12, 13]]
 
 
+# kinoptic interp25j
+LIMBS25 = [[0, 1],
+        #  [0, 2],
+         [0, 23],
+         [23, 24],
+         [24, 2],
+         [0, 3],
+        #  [3, 4],
+        [3, 15],
+        [15, 4],
+        #  [4, 5],
+         [4, 16],
+         [16, 5],
+         [0, 9],
+        #  [9, 10],
+         [9, 19],
+         [19, 10],
+        #  [10, 11],
+         [10, 20],
+         [20, 11],
+         [2, 6],
+         [2, 12],
+        #  [6, 7],
+         [6, 17],
+         [17, 7],
+        #  [7, 8],
+         [7, 18],
+         [18, 8],
+        #  [12, 13],
+         [12, 21],
+         [21, 13],
+        #  [13, 14],
+         [13, 22],
+         [22, 14]
+         ]
+
+
+
+# coco13
+# self.actual_joints = {
+#     0: 'nose',
+#     1: 'l-shoulder',
+#     2: 'r-shoulder',
+#     3: 'l-elbow',
+#     4: 'r-elbow',
+#     5: 'l-wrist',
+#     6: 'r-wrist',
+#     7: 'l-hip',
+#     8: 'r-hip',
+#     9: 'l-knee',
+#     10: 'r-knee',
+#     11: 'l-ankle',
+#     12: 'r-ankle',
+# }
+
+### lcc挑选的13个点-skeleton
+LIMBS13 = [[0, 1], [0, 2], [1, 2], [1, 3], [2, 4], [3, 5], [4, 6], [1, 7], [2, 8], [7, 8], [7, 9], [8, 10], [9, 11], [10, 12]]
+
+
+### lcc挑选的123个点-wholebody(face只vis点)
+### skeleton
+LIMBS123_SKELETON = [[0, 1], [0, 2], [1, 2], [1, 3], [2, 4], [3, 5], [4, 6], [1, 7], [2, 8], [7, 8], [7, 9], [8, 10], [9, 11], [10, 12]]
+
+LIMBS123_HAND_START0 = [[0, 1], [1, 2], [2, 3], [3, 4], \
+                        [0, 5], [5, 6], [6, 7], [7, 8], \
+                        [0, 9], [9, 10], [10, 11], [11, 12], \
+                        [0, 13], [13, 14], [14, 15], [15, 16], \
+                        [0, 17], [17, 18], [18, 19], [19, 20],]
+# ### lhand
+# 13+68
+LIMBS123_LHAND = (np.array(LIMBS123_HAND_START0) + 13 + 68).tolist()
+# ### rhand
+# 13+68+21
+LIMBS123_RHAND = (np.array(LIMBS123_HAND_START0) + 13 + 68 + 21).tolist()
+LIMBS123 = LIMBS123_SKELETON + LIMBS123_LHAND + LIMBS123_RHAND
+
+
+def save_debug_3d_images_wholebody(config, meta, preds, prefix):
+    if not config.DEBUG.DEBUG:
+        return
+
+    basename = os.path.basename(prefix)
+    dirname = os.path.dirname(prefix)
+    dirname1 = os.path.join(dirname, '3d_joints')
+
+    if not os.path.exists(dirname1):
+        os.makedirs(dirname1)
+
+    prefix = os.path.join(dirname1, basename)
+    file_name = prefix + "_3d.png"
+
+    # preds = preds.cpu().numpy()
+    batch_size = meta['num_person'].shape[0]
+    xplot = min(4, batch_size)
+    yplot = int(math.ceil(float(batch_size) / xplot))
+
+    width = 4.0 * xplot
+    height = 4.0 * yplot
+    fig = plt.figure(0, figsize=(width, height))
+    plt.subplots_adjust(left=0.05, right=0.95, bottom=0.05,
+                        top=0.95, wspace=0.05, hspace=0.15)
+    for i in range(batch_size):
+        num_person = meta['num_person'][i]
+        joints_3d = meta['joints_3d'][i]
+        joints_3d_vis = meta['joints_3d_vis'][i]
+        ax = plt.subplot(yplot, xplot, i + 1, projection='3d')
+        # ax.set_zlim(0, 1700)
+        # st()
+        for n in range(num_person):
+            joint = joints_3d[n]
+            joint_vis = joints_3d_vis[n]
+            for k in eval("LIMBS{}".format(len(joint))):
+                if joint_vis[k[0], 0] and joint_vis[k[1], 0]:
+                    x = [float(joint[k[0], 0]), float(joint[k[1], 0])]
+                    y = [float(joint[k[0], 1]), float(joint[k[1], 1])]
+                    z = [float(joint[k[0], 2]), float(joint[k[1], 2])]
+                    ax.plot(x, y, z, c='r', lw=1.5, marker='o', markerfacecolor='w', markersize=2,
+                            markeredgewidth=1)
+                else:
+                    x = [float(joint[k[0], 0]), float(joint[k[1], 0])]
+                    y = [float(joint[k[0], 1]), float(joint[k[1], 1])]
+                    z = [float(joint[k[0], 2]), float(joint[k[1], 2])]
+                    ax.plot(x, y, z, c='r', ls='--', lw=1.5, marker='o', markerfacecolor='w', markersize=2,
+                            markeredgewidth=1)
+            
+            
+            # face68  
+            x = joint[13:13+68, 0].cpu()
+            y = joint[13:13+68, 1].cpu()
+            z = joint[13:13+68, 2].cpu()
+            ax.scatter(x, y, z, c='r')
+
+
+
+        colors = ['b', 'g', 'c', 'y', 'm', 'orange', 'pink', 'royalblue', 'lightgreen', 'gold']
+        if preds is not None:
+            pred = preds[i]
+            for n in range(len(pred)):
+                joint = pred[n]
+                if joint[0, 3] >= 0:
+                    for k in eval("LIMBS{}".format(len(joint))):
+                        x = [float(joint[k[0], 0]), float(joint[k[1], 0])]
+                        y = [float(joint[k[0], 1]), float(joint[k[1], 1])]
+                        z = [float(joint[k[0], 2]), float(joint[k[1], 2])]
+                        ax.plot(x, y, z, c=colors[int(n % 10)], lw=1.5, marker='o', markerfacecolor='w', markersize=2,
+                                markeredgewidth=1)
+
+                    # st()           
+                    # face68  
+                    x = joint[13:13+68, 0].cpu()
+                    y = joint[13:13+68, 1].cpu()
+                    z = joint[13:13+68, 2].cpu()
+                    ax.scatter(x, y, z, c=colors[int(n % 10)])    
+    # plt.xlim((-1500, 2000))
+    # plt.ylim((-1500, 2000))
+
+    plt.savefig(file_name)
+    plt.close(0)
+
+
 def save_debug_3d_images(config, meta, preds, prefix):
     if not config.DEBUG.DEBUG:
         return
@@ -185,6 +609,8 @@ def save_debug_3d_images(config, meta, preds, prefix):
         joints_3d = meta['joints_3d'][i]
         joints_3d_vis = meta['joints_3d_vis'][i]
         ax = plt.subplot(yplot, xplot, i + 1, projection='3d')
+        # st()
+        ax.set_zlim(0, 1700)
         for n in range(num_person):
             joint = joints_3d[n]
             joint_vis = joints_3d_vis[n]
@@ -214,9 +640,319 @@ def save_debug_3d_images(config, meta, preds, prefix):
                         z = [float(joint[k[0], 2]), float(joint[k[1], 2])]
                         ax.plot(x, y, z, c=colors[int(n % 10)], lw=1.5, marker='o', markerfacecolor='w', markersize=2,
                                 markeredgewidth=1)
+    
+    plt.xlim((-1500, 2000))
+    plt.ylim((-1500, 2000))
+    # plt.zlim((0, 2000))
+
     plt.savefig(file_name)
     plt.close(0)
 
+
+def save_debug_3d_images_for_vid(config, meta, preds, prefix, name_dataset):
+    if not config.DEBUG.DEBUG:
+        return
+
+    basename = os.path.basename(prefix)
+    dirname = os.path.dirname(prefix)
+    dirname1 = os.path.join(dirname, '3d_joints', 'valid_imgs_for_vid', name_dataset)
+
+    if not os.path.exists(dirname1):
+        os.makedirs(dirname1)
+
+    prefix = os.path.join(dirname1, basename)
+    file_name = prefix + "_3d.png"
+
+    # preds = preds.cpu().numpy()
+    batch_size = meta['num_person'].shape[0]
+    xplot = min(4, batch_size)
+    yplot = int(math.ceil(float(batch_size) / xplot))
+
+    width = 4.0 * xplot
+    height = 4.0 * yplot
+    fig = plt.figure(0, figsize=(width, height))
+    plt.subplots_adjust(left=0.05, right=0.95, bottom=0.05,
+                        top=0.95, wspace=0.05, hspace=0.15)
+    for i in range(batch_size):
+        num_person = meta['num_person'][i]
+        joints_3d = meta['joints_3d'][i]
+        joints_3d_vis = meta['joints_3d_vis'][i]
+        ax = plt.subplot(yplot, xplot, i + 1, projection='3d')
+        ax.set_zlim(0, 1700)
+        for n in range(num_person):
+            joint = joints_3d[n]
+            joint_vis = joints_3d_vis[n]
+            for k in eval("LIMBS{}".format(len(joint))):
+                if joint_vis[k[0], 0] and joint_vis[k[1], 0]:
+                    x = [float(joint[k[0], 0]), float(joint[k[1], 0])]
+                    y = [float(joint[k[0], 1]), float(joint[k[1], 1])]
+                    z = [float(joint[k[0], 2]), float(joint[k[1], 2])]
+                    ax.plot(x, y, z, c='r', lw=1.5, marker='o', markerfacecolor='w', markersize=2,
+                            markeredgewidth=1)
+                else:
+                    x = [float(joint[k[0], 0]), float(joint[k[1], 0])]
+                    y = [float(joint[k[0], 1]), float(joint[k[1], 1])]
+                    z = [float(joint[k[0], 2]), float(joint[k[1], 2])]
+                    ax.plot(x, y, z, c='r', ls='--', lw=1.5, marker='o', markerfacecolor='w', markersize=2,
+                            markeredgewidth=1)
+
+        colors = ['b', 'g', 'c', 'y', 'm', 'orange', 'pink', 'royalblue', 'lightgreen', 'gold']
+        if preds is not None:
+            pred = preds[i]
+            for n in range(len(pred)):
+                joint = pred[n]
+                if joint[0, 3] >= 0:
+                    for k in eval("LIMBS{}".format(len(joint))):
+                        x = [float(joint[k[0], 0]), float(joint[k[1], 0])]
+                        y = [float(joint[k[0], 1]), float(joint[k[1], 1])]
+                        z = [float(joint[k[0], 2]), float(joint[k[1], 2])]
+                        ax.plot(x, y, z, c=colors[int(n % 10)], lw=1.5, marker='o', markerfacecolor='w', markersize=2,
+                                markeredgewidth=1)
+    
+
+    plt.xlim((-1500, 2000))
+    plt.ylim((-1500, 2000))
+    # plt.zlim((0, 2000))
+    
+    plt.savefig(file_name)
+    plt.close(0)
+
+
+
+def save_debug_3d_images_for_vid_meta(config, meta, prefix, name_dataset):
+    if not config.DEBUG.DEBUG:
+        return
+
+    basename = os.path.basename(prefix)
+    dirname = os.path.dirname(prefix)
+    dirname1 = os.path.join(dirname, '3d_joints', 'valid_imgs_for_vid', name_dataset)
+
+    if not os.path.exists(dirname1):
+        os.makedirs(dirname1)
+
+    prefix = os.path.join(dirname1, basename)
+    file_name = prefix + "_3d.png"
+
+    # preds = preds.cpu().numpy()
+    batch_size = meta['num_person'].shape[0]
+    xplot = min(4, batch_size)
+    yplot = int(math.ceil(float(batch_size) / xplot))
+
+    # width = 4.0 * xplot
+    # height = 4.0 * yplot
+
+
+    width = 15.0 * xplot
+    height = 15.0 * yplot
+
+
+    fig = plt.figure(0, figsize=(width, height))
+    plt.subplots_adjust(left=0.05, right=0.95, bottom=0.05,
+                        top=0.95, wspace=0.05, hspace=0.15)
+
+
+    colors = ['b', 'g', 'c', 'y', 'm', 'orange', 'pink', 'royalblue', 'lightgreen', 'gold']
+    for i in range(batch_size):
+        num_person = meta['num_person'][i]
+        joints_3d = meta['joints_3d'][i]
+        joints_3d_vis = meta['joints_3d_vis'][i]
+        ax = plt.subplot(yplot, xplot, i + 1, projection='3d')
+        ax.set_zlim(0, 1700)
+        for n in range(num_person):
+            joint = joints_3d[n]
+            joint_vis = joints_3d_vis[n]
+
+            # st()
+            
+            cnt = 0
+            for k in eval("LIMBS{}".format(len(joint))):
+                if cnt > 14:continue ### debugging only vis skeleton
+                if joint_vis[k[0], 0] and joint_vis[k[1], 0]:
+                    x = [float(joint[k[0], 0]), float(joint[k[1], 0])]
+                    y = [float(joint[k[0], 1]), float(joint[k[1], 1])]
+                    z = [float(joint[k[0], 2]), float(joint[k[1], 2])]
+                    ax.plot(x, y, z, c=colors[int(n % 10)], lw=3, marker='o', markerfacecolor='w', markersize=2,
+                            markeredgewidth=1)
+                cnt += 1
+                    
+            # # face68  
+            # x = joint[13:13+68, 0].cpu()
+            # y = joint[13:13+68, 1].cpu()
+            # z = joint[13:13+68, 2].cpu()
+            # ax.scatter(x, y, z, c=colors[int(n % 10)])    
+
+
+    plt.xlim((-1500, 2000))
+    plt.ylim((-1500, 2000))
+    # plt.zlim((0, 2000))
+    
+    plt.savefig(file_name)
+    plt.close(0)
+
+
+
+def save_debug_3d_images_wholebody_for_vid(config, meta, preds, prefix, name_dataset):
+    if not config.DEBUG.DEBUG:
+        return
+    basename = os.path.basename(prefix)
+    dirname = os.path.dirname(prefix)
+    dirname1 = os.path.join(dirname, '3d_joints', 'valid_imgs_for_vid', name_dataset)
+    if not os.path.exists(dirname1):
+        os.makedirs(dirname1)
+
+    prefix = os.path.join(dirname1, basename)
+    file_name = prefix + "_3d.png"
+
+    # preds = preds.cpu().numpy()
+    batch_size = meta['num_person'].shape[0]
+    xplot = min(4, batch_size)
+    yplot = int(math.ceil(float(batch_size) / xplot))
+
+    # width = 4.0 * xplot
+    # height = 4.0 * yplot
+
+    width = 15.0 * xplot
+    height = 15.0 * yplot
+
+    lw = 3
+
+
+    fig = plt.figure(0, figsize=(width, height))
+    plt.subplots_adjust(left=0.05, right=0.95, bottom=0.05,
+                        top=0.95, wspace=0.05, hspace=0.15)
+    for i in range(batch_size):
+        num_person = meta['num_person'][i]
+        joints_3d = meta['joints_3d'][i]
+        joints_3d_vis = meta['joints_3d_vis'][i]
+        ax = plt.subplot(yplot, xplot, i + 1, projection='3d')
+        ax.set_zlim(0, 1700)
+        # st()
+        for n in range(num_person):
+            joint = joints_3d[n]
+            joint_vis = joints_3d_vis[n]
+            for k in eval("LIMBS{}".format(len(joint))):
+                if joint_vis[k[0], 0] and joint_vis[k[1], 0]:
+                    x = [float(joint[k[0], 0]), float(joint[k[1], 0])]
+                    y = [float(joint[k[0], 1]), float(joint[k[1], 1])]
+                    z = [float(joint[k[0], 2]), float(joint[k[1], 2])]
+                    ax.plot(x, y, z, c='r', lw=lw, marker='o', markerfacecolor='w', markersize=2,
+                            markeredgewidth=1)
+                else:
+                    x = [float(joint[k[0], 0]), float(joint[k[1], 0])]
+                    y = [float(joint[k[0], 1]), float(joint[k[1], 1])]
+                    z = [float(joint[k[0], 2]), float(joint[k[1], 2])]
+                    ax.plot(x, y, z, c='r', ls='--', lw=lw, marker='o', markerfacecolor='w', markersize=2,
+                            markeredgewidth=1)
+            
+            
+            # face68  
+            x = joint[13:13+68, 0].cpu()
+            y = joint[13:13+68, 1].cpu()
+            z = joint[13:13+68, 2].cpu()
+            ax.scatter(x, y, z, c='r')
+
+
+
+        colors = ['b', 'g', 'c', 'y', 'm', 'orange', 'pink', 'royalblue', 'lightgreen', 'gold']
+        if preds is not None:
+            pred = preds[i]
+            for n in range(len(pred)):
+                joint = pred[n]
+                if joint[0, 3] >= 0:
+                    for k in eval("LIMBS{}".format(len(joint))):
+                        x = [float(joint[k[0], 0]), float(joint[k[1], 0])]
+                        y = [float(joint[k[0], 1]), float(joint[k[1], 1])]
+                        z = [float(joint[k[0], 2]), float(joint[k[1], 2])]
+                        ax.plot(x, y, z, c=colors[int(n % 10)], lw=lw, marker='o', markerfacecolor='w', markersize=2,
+                                markeredgewidth=1)
+
+                    # st()           
+                    # face68  
+                    x = joint[13:13+68, 0].cpu()
+                    y = joint[13:13+68, 1].cpu()
+                    z = joint[13:13+68, 2].cpu()
+                    ax.scatter(x, y, z, c=colors[int(n % 10)])    
+
+    plt.xlim((-1500, 2000))
+    plt.ylim((-1500, 2000))
+
+    # ax.view_init(120, 30)
+
+    plt.savefig(file_name)
+
+    ax.view_init(0, -45);plt.savefig(file_name)
+    # st()
+    plt.close(0)
+
+
+
+def save_debug_3d_images_for_vid(config, meta, preds, prefix, name_dataset):
+    if not config.DEBUG.DEBUG:
+        return
+
+    basename = os.path.basename(prefix)
+    dirname = os.path.dirname(prefix)
+    dirname1 = os.path.join(dirname, '3d_joints', 'valid_imgs_for_vid', name_dataset)
+
+    if not os.path.exists(dirname1):
+        os.makedirs(dirname1)
+
+    prefix = os.path.join(dirname1, basename)
+    file_name = prefix + "_3d.png"
+
+    # preds = preds.cpu().numpy()
+    batch_size = meta['num_person'].shape[0]
+    xplot = min(4, batch_size)
+    yplot = int(math.ceil(float(batch_size) / xplot))
+
+    width = 4.0 * xplot
+    height = 4.0 * yplot
+    fig = plt.figure(0, figsize=(width, height))
+    plt.subplots_adjust(left=0.05, right=0.95, bottom=0.05,
+                        top=0.95, wspace=0.05, hspace=0.15)
+    for i in range(batch_size):
+        num_person = meta['num_person'][i]
+        joints_3d = meta['joints_3d'][i]
+        joints_3d_vis = meta['joints_3d_vis'][i]
+        ax = plt.subplot(yplot, xplot, i + 1, projection='3d')
+        ax.set_zlim(0, 1700)
+        for n in range(num_person):
+            joint = joints_3d[n]
+            joint_vis = joints_3d_vis[n]
+            for k in eval("LIMBS{}".format(len(joint))):
+                if joint_vis[k[0], 0] and joint_vis[k[1], 0]:
+                    x = [float(joint[k[0], 0]), float(joint[k[1], 0])]
+                    y = [float(joint[k[0], 1]), float(joint[k[1], 1])]
+                    z = [float(joint[k[0], 2]), float(joint[k[1], 2])]
+                    ax.plot(x, y, z, c='r', lw=1.5, marker='o', markerfacecolor='w', markersize=2,
+                            markeredgewidth=1)
+                else:
+                    x = [float(joint[k[0], 0]), float(joint[k[1], 0])]
+                    y = [float(joint[k[0], 1]), float(joint[k[1], 1])]
+                    z = [float(joint[k[0], 2]), float(joint[k[1], 2])]
+                    ax.plot(x, y, z, c='r', ls='--', lw=1.5, marker='o', markerfacecolor='w', markersize=2,
+                            markeredgewidth=1)
+
+        colors = ['b', 'g', 'c', 'y', 'm', 'orange', 'pink', 'royalblue', 'lightgreen', 'gold']
+        if preds is not None:
+            pred = preds[i]
+            for n in range(len(pred)):
+                joint = pred[n]
+                if joint[0, 3] >= 0:
+                    for k in eval("LIMBS{}".format(len(joint))):
+                        x = [float(joint[k[0], 0]), float(joint[k[1], 0])]
+                        y = [float(joint[k[0], 1]), float(joint[k[1], 1])]
+                        z = [float(joint[k[0], 2]), float(joint[k[1], 2])]
+                        ax.plot(x, y, z, c=colors[int(n % 10)], lw=1.5, marker='o', markerfacecolor='w', markersize=2,
+                                markeredgewidth=1)
+    
+
+    plt.xlim((-1500, 2000))
+    plt.ylim((-1500, 2000))
+    # plt.zlim((0, 2000))
+    
+    plt.savefig(file_name)
+    plt.close(0)
 
 def save_debug_3d_cubes(config, meta, root, prefix):
     if not config.DEBUG.DEBUG:

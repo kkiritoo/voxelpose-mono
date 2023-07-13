@@ -13,3 +13,6 @@ from dataset.campus_synthetic import CampusSynthetic as campus_synthetic
 from dataset.shelf import Shelf as shelf
 from dataset.campus import Campus as campus
 from dataset.kinoptic import Kinoptic as kinoptic
+
+from dataset.kinoptic_wholebody import KinopticWholeBody as kinoptic_wholebody
+from dataset.kinoptic_wholebody_mp import KinopticWholeBodyMP as kinoptic_wholebody_mp

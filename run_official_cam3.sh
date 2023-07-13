@@ -1,1 +1,1 @@
-CUDA_VISIBLE_DEVICES=3 python run/train_3d.py --cfg configs/panoptic/resnet50/prn64_cpn80x80x20_960x512_cam3.yaml
+CUDA_VISIBLE_DEVICES=9 python run/train_3d.py --cfg configs/panoptic/resnet50/prn64_cpn80x80x20_960x512_cam3.yaml

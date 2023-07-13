@@ -58,7 +58,7 @@ LOSS:
 TRAIN:
   BATCH_SIZE: 1
   SHUFFLE: true
-  # for debugging
+  # lcc debugging
   # SHUFFLE: false
   BEGIN_EPOCH: 0
   END_EPOCH: 10
@@ -68,7 +68,7 @@ TRAIN:
 TEST:
   # MODEL_FILE: 'checkpoint.pth.tar'
   MODEL_FILE: 'model_best.pth.tar'
-  # for debugging
+  # lcc debugging
   # BATCH_SIZE: 1
   BATCH_SIZE: 4
 DEBUG:

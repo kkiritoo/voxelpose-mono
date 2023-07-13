@@ -29,6 +29,7 @@ from pdb import set_trace as st
 import numpy as np
 import math
 import cv2
+import copy
 
 def get_max_preds(batch_heatmaps):
     '''
@@ -169,11 +170,61 @@ def joints_to_color(joints, calib):
     return joints
 
 
+def gaussian_np(dist, sigma=10):
+    return math.e**(-dist**2/2/sigma**2)
+
+def gaussian(dist, sigma=10):
+    return math.e**(-dist**2/2/sigma**2)
+
+
+
+# from matplotlib import pyplot as plt
+# import matplotlib
+# matplotlib.use('TkAgg')
+# def show_np_image(np_image):
+#     plt.figure()
+#     # plt.imshow(cv.cvtColor(np_image, cv.COLOR_BGR2RGB))
+#     plt.imshow(np_image)
+#     plt.show()
+
+# def show_proj_cloud(proj_cloud, name=None):
+#     # 原本的yz轴交换了，这边用proj_cloud[:, :, 1]
+#     proj_cloud_show_z = proj_cloud[:, :, 1]
+#     proj_cloud_show_z = proj_cloud_show_z / proj_cloud_show_z.max()
+#     proj_cloud_show_z = (proj_cloud_show_z * 255.0).astype(np.uint8) 
+#     # proj_cloud_show_z_color1 =  cv.applyColorMap(proj_cloud_show_z, cv.COLORMAP_JET)
+#     proj_cloud_show_z_color1 =  cv.applyColorMap(proj_cloud_show_z, cv.COLORMAP_PARULA)
+
+#     cv.namedWindow(name,0)
+#     cv.resizeWindow(name, 960, 540)
+#     cv.imshow(name, proj_cloud_show_z_color1)
+#     if 113 == cv.waitKey(100):
+#         st()
+    
+#     # plt.figure()
+#     # plt.imshow(cv.cvtColor(np_image, cv.COLOR_BGR2RGB))
+#     # plt.imshow(proj_cloud_show_z_color1)
+#     # plt.show()
+
+#     # plt.figure()
+#     # # plt.imshow(cv.cvtColor(np_image, cv.COLOR_BGR2RGB))
+#     # plt.imshow(proj_cloud_show_z_color2)
+#     # plt.show()
+
+
+
+
 # 关于grid和cube的理解
 # cube是整个的空间，是把世界空间离散化之后的，人可以活动的全部的范围
 # 对于cpn和prn中的cube都是全部的空间，只不过离散的粒度不一样罢了
 # grid是cube中的3d bbox，所以给一个center scale就能算出来
 # grid表示这128000个点[80, 80, 20] 在cube空间中的位置
+
+
+
+
+# vis_time_cost_flag = True
+vis_time_cost_flag = False
 
 class ProjectLayer(nn.Module):
     def __init__(self, cfg):
@@ -183,10 +234,15 @@ class ProjectLayer(nn.Module):
         self.heatmap_size = cfg.NETWORK.HEATMAP_SIZE
 
         self.f_weight = cfg.NETWORK.F_WEIGHT
+        self.fill_cloud = cfg.DATASET.CLOUD_FILL
+        self.f_weight_sigma = cfg.NETWORK.F_WEIGHT_SIGMA
 
         self.grid_size = cfg.MULTI_PERSON.SPACE_SIZE
         self.cube_size = cfg.MULTI_PERSON.INITIAL_CUBE_SIZE
         self.grid_center = cfg.MULTI_PERSON.SPACE_CENTER
+        self.dep_downsample = cfg.NETWORK.DEP_DOWNSAMPLE
+        self.unet_dep15 = cfg.NETWORK.UNET_DEP15
+
         
 
     def compute_grid(self, boxSize, boxCenter, nBins, device=None):
@@ -209,8 +265,9 @@ class ProjectLayer(nn.Module):
         grid = torch.cat([gridx, gridy, gridz], dim=1)
         return grid
 
-    def get_voxel(self, heatmaps, meta, grid_size, grid_center, cube_size):
+    def get_voxel(self, heatmaps, meta, grid_size, grid_center, cube_size, all_cloud=None):
         device = heatmaps[0].device
+        # st()
         batch_size = heatmaps[0].shape[0]
         num_joints = heatmaps[0].shape[1]
         nbins = cube_size[0] * cube_size[1] * cube_size[2]
@@ -230,6 +287,10 @@ class ProjectLayer(nn.Module):
                 # If the camera locations always keep the same, the grids and sample_grids are repeated across frames
                 # and can be computed only one time.
                 
+                if vis_time_cost_flag:
+                    print('st1-compute_grid')
+                    import time;time_start=time.time()
+
                 # 下面这句话，是为了区别cpn和prn阶段
                 # 当batch_size==1的时候都没问题
                 # test默认的batch_size==4, 但是cpn阶段给的batch中每一个grid_center都是一样的，
@@ -240,6 +301,14 @@ class ProjectLayer(nn.Module):
                 else:
                     grid = self.compute_grid(grid_size, grid_center[i], cube_size, device=device)
                 grids[i:i + 1] = grid
+
+
+
+                if vis_time_cost_flag:
+                    time_end=time.time();print('cost1\n',time_end-time_start)
+                    print('st2-project_pose others')
+                    import time;time_start=time.time()
+
 
                 # (Pdb) grid.shape
                 # torch.Size([128000, 3])
@@ -256,6 +325,7 @@ class ProjectLayer(nn.Module):
                         get_transform(center, scale, 0, self.img_size),
                         dtype=torch.float,
                         device=device)
+                    
                     cam = {}
                     for k, v in meta[c]['camera'].items():
                         cam[k] = v[i]
@@ -266,16 +336,26 @@ class ProjectLayer(nn.Module):
                     # (Pdb) grid.shape
                     # torch.Size([128000, 3])
 
+                    #1 org
                     xy = cameras.project_pose(grid, cam)
-                    # tensor([[1689.0734,   76.5324],
-                    #         [1689.0284,  114.4259],
-                    #         [1688.9335,  152.3425],
-                    #         ...,
-                    #         [1248.0789,  450.4740],
-                    #         [1248.1432,  435.6599],
-                    #         [1248.2118,  420.8386]], device='cuda:0')
+                    # print(f"1:xy={xy}")
+                    # st1-compute_grid
+                    # cost1
+                    # 0.00035858154296875
+                    # st2-project_pose others
+                    # cost2
+                    # 0.004947185516357422 ### 计算时间十分的珍贵
 
-                    # panoptic-dataset-tool投影不行
+
+                    # #2 panoptic-dataset-tool投影不行 这是我转化为color之后再proj point，但是其实感觉结果上没有区别啊
+                    # # 并且由于下面numpy的计算太占用cpu，还是直接用之前的吧╮(╯▽╰)╭
+                    # # st1-compute_grid
+                    # # cost1
+                    # # 0.00041031837463378906
+                    # # st2-project_pose others
+                    # # cost2
+                    # # 0.3301553726196289 ### 计算时间长的可怕
+
                     # import pickle
                     # with open('calib_list.pkl','rb') as calib_list_f:
                     #     calib_list = pickle.load(calib_list_f)
@@ -283,7 +363,9 @@ class ProjectLayer(nn.Module):
                     # M = np.array([[1.0, 0.0, 0.0],
                     #             [0.0, 0.0, -1.0],
                     #             [0.0, 1.0, 0.0]])
-                    # grid_tmp = grid.detach().cpu().numpy() * 0.0001
+                    # # grid_tmp = grid.detach().cpu().numpy() * 0.0001
+                    # grid_tmp = grid.detach().cpu().numpy() * 0.001
+                    # # grid_tmp = grid.detach().cpu().numpy() * 0.1
                     # grid_tmp = grid_tmp.dot(np.linalg.inv(M))
 
                     # joints = joints_to_color(grid_tmp, calib_list[meta[c]['seq'][i]][meta[c]['camera_index'][i]])
@@ -293,7 +375,11 @@ class ProjectLayer(nn.Module):
                     # proj_joints = project_pts(joints, calib_list[meta[c]['seq'][i]][meta[c]['camera_index'][i]])
                     
                     # xy = torch.as_tensor(proj_joints, dtype=torch.float, device=device)
+                    # # print(f"2:xy={xy}")
+
+
                     
+
                     #3
                     # import pickle
                     # with open('calib_list2.pkl','rb') as calib_list_f2:
@@ -306,7 +392,10 @@ class ProjectLayer(nn.Module):
                     # xy_3 = projectPoints((grid.detach().cpu().numpy()*0.1).transpose(), calib2['K'], calib2['R'],calib2['t'], calib2['distCoef']).transpose()[:, :2]
                     # st()
                     # 结果是xy_3完全等于xy，然后除了第一个batch之外其他的都是ok的纳尼
-                    
+
+
+
+
                     bounding[i, 0, 0, :, c] = (xy[:, 0] >= 0) & (xy[:, 1] >= 0) & (xy[:, 0] < width) & (
                                 xy[:, 1] < height)
                     xy = torch.clamp(xy, -1.0, max(width, height))
@@ -318,6 +407,8 @@ class ProjectLayer(nn.Module):
                         [w - 1, h - 1], dtype=torch.float,
                         device=device) * 2.0 - 1.0
                     sample_grid = torch.clamp(sample_grid.view(1, 1, nbins, 2), -1.1, 1.1)
+                    
+                    # st()
                     
                     # 这个sample_grid现在是-1.1到1.1的，已经归一化过的，所以应该可以用在heatmap，uv等等
                     # 投影到rgb uv上面比较方便毕竟之前算过了，如果投影到depth uv上面其实也行
@@ -333,6 +424,10 @@ class ProjectLayer(nn.Module):
 
                     # 我觉得这里可能有问题，因为cloud是稀疏的，先跑起来，如果有问题，就把cloud插值满之后再跑
 
+                    # import time
+                    # start = time.time()
+
+                    # st()
 
                     if self.f_weight:
 
@@ -387,32 +482,221 @@ class ProjectLayer(nn.Module):
                         # 计算距离来算一个权重来加权即可
                         
                         # 投影到你算好的uv->3d point cloud上面去
+                        
+                        # print('cloud 2 {}'.format(meta[c]['cloud'][i].mean()))
+                        # print('cloud 2 {}'.format(meta[c]['cloud'][i][50,:,:].mean()))
+                        # print('cloud 2 {}'.format(meta[c]['cloud'][i][100,:,:].mean()))
+                        # print('cloud 2 {}'.format(meta[c]['cloud'][i][500,:,:].mean()))
+                        # 感觉从meta中出来的变成tensor的cloud有一些坐标发生了变化，如果需要可以把用pickle来做
+                        # st()
+
+                        # 我记得之前考虑过这个问题
+                        # 由于原本的cloud中的不存在的点在相机坐标系下表示为0,0,0，也就是说和gt的距离很远
+                        # 因此即使变换为世界坐标系中，和gt的距离肯定也很远
+                        # 按照学长的看法是把这些置为1表示用原本rgb中的信息，我觉得置为0？都试试把
+
+
+
+                        if self.dep_downsample:
+                            assert all_cloud is not None
+                            # st()
+                            cloud = all_cloud[c][i]
+                            # torch.Size([1, 3, 1080, 2024])
+                            # st()
+                            # 测试refine之前的depth不需要unsqueeze
+                            cloud = cloud.float() # 1 15 3 128 240
+                            # cloud = cloud.unsqueeze(0).float() # 1 15 3 128 240
+                        else:
+                                
+                            ### lcc debugging
+                            ### 在显存中用deepcopy是不是会增大显存占用？
+                            # cloud = copy.deepcopy(meta[c]['cloud'][i])
+                            cloud = meta[c]['cloud'][i]
+                            # https://pytorch.org/docs/stable/generated/torch.nn.functional.pad.html?highlight=pad#torch.nn.functional.pad
+                            # pad cloud
+                            p2d_cloud = (0, 0, (2025-1920)//2, (2025-1920)//2)
+                            cloud = F.pad(cloud, p2d_cloud, "constant", 0)
+                            # st()
+                            
+
+                            if self.fill_cloud:
+                                cloud_mask = meta[c]['cloud_mask'][i]
+                                p2d_cloud_mask = ((2025-1920)//2, (2025-1920)//2)
+                                cloud_mask = F.pad(cloud_mask, p2d_cloud_mask, "constant", 1) # 代表没有值
+                                # st()
+                                # cloud[cloud_mask] = cloud.min() - 1 # 最小值
+        
+                                # print(f'cloud.min() {cloud.min()}')
+                                cloud[cloud_mask] = -1e10 # 最小值
+                                
+                                cloud = cloud.unsqueeze(0).permute(0,3,1,2).float()
+                                # show_proj_cloud(cloud.squeeze(0).permute(1,2,0).detach().cpu().numpy(), '1')
+                                
+                                # from torch.nn import functional as F
+                                # 这个操作非常耗时，其实按理来说应该可以先resize之后再max_pool，
+                                # 反正之后要线性插值，可以省下几十倍的时间
+                                cloud_max = F.max_pool2d(cloud, 3, stride=1, padding=1)
+                                
+                                # show_proj_cloud(cloud_max.squeeze(0).permute(1,2,0).detach().cpu().numpy(), '2')
+                                cloud_fill = torch.where(cloud_mask, cloud_max, cloud)
+                                # show_proj_cloud(cloud_fill.squeeze(0).permute(1,2,0).detach().cpu().numpy(), '3')
+                                cloud = cloud_fill
+                                # st()
+
+                                # for ks in range(2, 10):
+                                #     cloud_max = F.min_pool2d(cloud, ks, stride=1)
+                                #     cloud_fill = torch.where(cloud_mask, cloud_max, cloud)
+                                #     print((cloud_avg!=0).sum())
+                                #     st()
+                                #     show_proj_cloud(cloud_avg.squeeze(0).permute(1,2,0).detach().cpu().numpy())
+                                
+                                # st()
+                                # import time
+                                # start = time.time()
+                                # for i in range(100):cloud_avg = F.max_pool2d(cloud_avg, 3, stride=1, padding=1);print((cloud_avg!=0).sum())
+                                # print(f'cost {time.time() - start}')
+                            else:
+                                cloud = cloud.unsqueeze(0).permute(0,3,1,2).float()
 
                         # st()
-                        cloud = meta[c]['cloud'][i].unsqueeze(0).permute(0,3,1,2).float() * 100
-                        
+
+
                         # print(cloud[:,0,:,:].max(), cloud[:,1,:,:].max(), cloud[:,2,:,:].max())
                         # print(cloud[:,0,:,:].min(), cloud[:,1,:,:].min(), cloud[:,2,:,:].min())
                         # print('\n')
 
-                        grid_coord_from_depthmap = F.grid_sample(cloud, sample_grid, align_corners=True)
+
+                        ########################### org cuda out of mem ###########################
+                        if not self.unet_dep15:
+                            # st()
+                            grid_coord_from_depthmap = F.grid_sample(cloud, sample_grid, align_corners=True)
+                        else:
+                            sample_grid_repeat = sample_grid.repeat(cloud.shape[0], 1, 1, 1)
+                            grid_coord_from_depthmap = F.grid_sample(cloud, sample_grid_repeat, align_corners=True)
+                        
+                        # grid_coord_from_depthmap = F.grid_sample(cloud, sample_grid, align_corners=True)
                         grid_reshape = grid.permute(1,0).reshape((1,3,1,nbins))
+                        # st()
                         grid_res = grid_reshape - grid_coord_from_depthmap
                         grid_res_square = (grid_res * grid_res).sum(axis=1)
-                        weight_all = (1 - grid_res_square / grid_res_square.max()).reshape(1,1,1,nbins).repeat(1,num_joints,1,1)
-                        
+                        grid_res = grid_res_square.sqrt()
 
+                        # # 下面这种根据距离来赋予权重的，即使里的很远，也能有一个很高的权重，不合适
+                        # weight_all_dis = (1 - grid_res / grid_res.max()).reshape(1,1,1,nbins).repeat(1,num_joints,1,1)
+
+                        # 这下面的测试的结果是发现
+                        # sigma1000 > sigma100 > sigma10
+                        # 万一sigma10000 > sigma1000
+                        # 目前发现sigma2000有希望提升效果
+
+                        # *weightmap几乎没有意义了，就说明这个加权没有卵用
+                        # 高斯权重
+                        # sigma = 10.0
+                        # weight_all_gau = (-grid_res**2/2/sigma**2).exp()
+                        # print(weight_all_gau.mean())
+                        # sigma = 100.0
+                        # weight_all_gau = (-grid_res**2/2/sigma**2).exp()
+                        # print(weight_all_gau.mean())
+                        # sigma = 1000.0
+                        # weight_all_gau = (-grid_res**2/2/sigma**2).exp()
+                        # print(weight_all_gau.mean())
+                        sigma = self.f_weight_sigma
+                        weight_all_gau = (-grid_res**2/2/sigma**2).exp()
+                        # print(weight_all_gau.mean())
+                        # st()
+                        weight_all = weight_all_gau
+
+                        # st()
+                        
                         # 感觉绝大多数的点都离得太远了，其实也合理，本身cloud中都只有1/10的位置有值
                         # 而且一条射线经过的点最短是边长，就算是80把，这80中只有可能有几个点在很近的地方
                         # 那就相当于128000/8000=16可不是就只有16个点很近吗
 
                         # if pytorch version < 1.3.0, align_corners=True should be omitted.
+                        # st()
                         cubes[i:i + 1, :, :, :, c] += F.grid_sample(heatmaps[c][i:i + 1, :, :, :], sample_grid, align_corners=True) * weight_all
+
+                        ### no dep15
+                        # (Pdb) cubes[i:i + 1, :, :, :, c].shape
+                        # torch.Size([1, 15, 1, 128000])
+                        # (Pdb) (F.grid_sample(heatmaps[c][i:i + 1, :, :, :], sample_grid, align_corners=True) * weight_all).shape
+                        # torch.Size([1, 15, 1, 128000])
+                        # (Pdb) weight_all.shape
+                        # torch.Size([1, 1, 128000])
+                        # (Pdb) F.grid_sample(heatmaps[c][i:i + 1, :, :, :], sample_grid, align_corners=True).shape
+                        # torch.Size([1, 15, 1, 128000])
+
+
+
+                        # (Pdb) cubes[i:i + 1, :, :, :, c].shape
+                        # torch.Size([1, 15, 1, 128000])
+                        # (Pdb) (F.grid_sample(heatmaps[c][i:i + 1, :, :, :], sample_grid, align_corners=True) * weight_all).shape
+                        # torch.Size([1, 15, 1, 128000])
+                        # (Pdb) weight_all.shape
+                        # torch.Size([15, 1, 128000])
+                        # (Pdb) F.grid_sample(heatmaps[c][i:i + 1, :, :, :], sample_grid, align_corners=True).shape
+                        # torch.Size([1, 15, 1, 128000])
+                        ########################### org cuda out of mem ###########################
+
+                        ########################### lcc ###########################
+                        # for joint_i in range(15):
+                        #     grid_coord_from_depthmap = F.grid_sample(cloud[joint_i:joint_i+1], sample_grid, align_corners=True)
+                        #     grid_reshape = grid.permute(1,0).reshape((1,3,1,nbins))
+                        #     # st()
+                        #     grid_res = grid_reshape - grid_coord_from_depthmap
+                        #     grid_res_square = (grid_res * grid_res).sum(axis=1)
+                        #     grid_res = grid_res_square.sqrt()
+
+                        #     # # 下面这种根据距离来赋予权重的，即使里的很远，也能有一个很高的权重，不合适
+                        #     # weight_all_dis = (1 - grid_res / grid_res.max()).reshape(1,1,1,nbins).repeat(1,num_joints,1,1)
+
+                        #     # 这下面的测试的结果是发现
+                        #     # sigma1000 > sigma100 > sigma10
+                        #     # 万一sigma10000 > sigma1000
+                        #     # 目前发现sigma2000有希望提升效果
+
+                        #     # *weightmap几乎没有意义了，就说明这个加权没有卵用
+                        #     # 高斯权重
+                        #     # sigma = 10.0
+                        #     # weight_all_gau = (-grid_res**2/2/sigma**2).exp()
+                        #     # print(weight_all_gau.mean())
+                        #     # sigma = 100.0
+                        #     # weight_all_gau = (-grid_res**2/2/sigma**2).exp()
+                        #     # print(weight_all_gau.mean())
+                        #     # sigma = 1000.0
+                        #     # weight_all_gau = (-grid_res**2/2/sigma**2).exp()
+                        #     # print(weight_all_gau.mean())
+                        #     sigma = self.f_weight_sigma
+                        #     weight_all_gau = (-grid_res**2/2/sigma**2).exp()
+                        #     # print(weight_all_gau.mean())
+                        #     # st()
+                        #     weight_all = weight_all_gau
+
+                        #     # st()
+                            
+                        #     # 感觉绝大多数的点都离得太远了，其实也合理，本身cloud中都只有1/10的位置有值
+                        #     # 而且一条射线经过的点最短是边长，就算是80把，这80中只有可能有几个点在很近的地方
+                        #     # 那就相当于128000/8000=16可不是就只有16个点很近吗
+
+                        #     # if pytorch version < 1.3.0, align_corners=True should be omitted.
+                        #     # st()
+                        #     # cubes[i:i + 1, :, :, :, c] += F.grid_sample(heatmaps[c][i:i + 1, :, :, :], sample_grid, align_corners=True) * weight_all
+                        #     cubes[i:i + 1, joint_i:joint_i+1, :, :, c] += F.grid_sample(heatmaps[c][i:i + 1, joint_i:joint_i+1, :, :], sample_grid, align_corners=True) * weight_all
+                        ########################### lcc ###########################
                     else:
                         cubes[i:i + 1, :, :, :, c] += F.grid_sample(heatmaps[c][i:i + 1, :, :, :], sample_grid, align_corners=True)
-        
-        # 验证一下投影的对不对，看看joint的位置cube值是否最大
-        # 这样算的不对，难道这两个坐标不是一样的吗
+
+
+
+
+                    # print(f'f_weight cost {time.time() - start}')
+                
+                if vis_time_cost_flag:
+                    time_end=time.time();print('cost2\n',time_end-time_start)
+
+        # 一直都不对
+        # # 验证一下投影的对不对，看看joint的位置cube值是否最大
+        # # 这样算的不对，难道这两个坐标不是一样的吗
         # for jj in range(15):
         #     st()
         #     # 第jj个joint，下面输出多个表示多个人
@@ -428,6 +712,6 @@ class ProjectLayer(nn.Module):
         cubes = cubes.view(batch_size, num_joints, cube_size[0], cube_size[1], cube_size[2])  ##
         return cubes, grids
 
-    def forward(self, heatmaps, meta, grid_size, grid_center, cube_size):
-        cubes, grids = self.get_voxel(heatmaps, meta, grid_size, grid_center, cube_size)
+    def forward(self, heatmaps, meta, grid_size, grid_center, cube_size, all_cloud=None):
+        cubes, grids = self.get_voxel(heatmaps, meta, grid_size, grid_center, cube_size, all_cloud=all_cloud)
         return cubes, grids

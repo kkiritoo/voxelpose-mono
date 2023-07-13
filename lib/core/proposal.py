@@ -12,6 +12,7 @@ import torch
 import torch.nn.functional as F
 from scipy.ndimage import maximum_filter
 
+from pdb import set_trace as st
 
 def get_index(indices, shape):
     batch_size = indices.shape[0]
@@ -22,6 +23,9 @@ def get_index(indices, shape):
     indices = torch.cat([indices_x, indices_y, indices_z], dim=2)
     return indices
 
+### 这个max_pool的意思是如果在周围3*3*3的范围内，只保留最大的，其他的置为0
+### 但是如何保证heatmap的一个响应的范围如此小呢，难道是凭经验？我不理解，但是无论如何，它做到了
+### 应该就是凭经验的把，认为响应的范围就不会很大，所以设置kernel=3这个超参
 
 def max_pool(inputs, kernel=3):
     padding = (kernel - 1) // 2
@@ -38,6 +42,11 @@ def nms(root_cubes, max_num):
     #     mx = torch.as_tensor(maximum_filter(root_cubes[b].detach().cpu().numpy(), size=3),
     #                          dtype=torch.float, device=root_cubes.device)
     #     root_cubes_nms[b] = (mx == root_cubes[b]).float() * root_cubes[b]
+
+
+    ### 这个max_pool的意思是如果在周围3*3*3的范围内，只保留最大的，其他的置为0
+    ### 但是如何保证heatmap的一个响应的范围如此小呢，难道是凭经验？我不理解，但是无论如何，它做到了
+    # st()
     root_cubes_nms = max_pool(root_cubes)
     root_cubes_nms_reshape = root_cubes_nms.reshape(batch_size, -1)
     topk_values, topk_index = root_cubes_nms_reshape.topk(max_num)

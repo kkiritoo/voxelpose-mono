@@ -142,3 +142,47 @@ class V2VNet(nn.Module):
                 # nn.init.xavier_normal_(m.weight)
                 nn.init.normal_(m.weight, 0, 0.001)
                 nn.init.constant_(m.bias, 0)
+
+
+class EncoderDecorderLite(nn.Module):
+    def __init__(self):
+        super(EncoderDecorderLite, self).__init__()
+        self.encoder_pool1 = Pool3DBlock(2)
+        self.encoder_res1 = Res3DBlock(32, 64)
+        self.mid_res = Res3DBlock(64, 64)
+        self.decoder_res1 = Res3DBlock(64, 64)
+        self.decoder_upsample1 = Upsample3DBlock(64, 32, 2, 2)
+
+    def forward(self, x):
+        x = self.encoder_pool1(x)
+        x = self.encoder_res1(x)
+        x = self.mid_res(x)
+        x = self.decoder_res1(x)
+        x = self.decoder_upsample1(x)
+        return x
+
+class V2VNetLite(nn.Module):
+    def __init__(self, input_channels, output_channels):
+        super(V2VNetLite, self).__init__()
+        self.front_layers = nn.Sequential(
+            Basic3DBlock(input_channels, 16, 3),
+            Res3DBlock(16, 32),
+        )
+        self.encoder_decoder = EncoderDecorderLite()
+        self.output_layer = nn.Conv3d(32, output_channels, kernel_size=1, stride=1, padding=0)
+        self._initialize_weights()
+
+    def forward(self, x):
+        x = self.front_layers(x)
+        x = self.encoder_decoder(x)
+        x = self.output_layer(x)
+        return x
+
+    def _initialize_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv3d):
+                nn.init.normal_(m.weight, 0, 0.001)
+                nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.ConvTranspose3d):
+                nn.init.normal_(m.weight, 0, 0.001)
+                nn.init.constant_(m.bias, 0)

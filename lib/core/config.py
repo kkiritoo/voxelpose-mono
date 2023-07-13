@@ -76,12 +76,45 @@ config.NETWORK.INPUT_SIZE = 512
 config.NETWORK.HEATMAP_SIZE = np.array([80, 80])
 config.NETWORK.IMAGE_SIZE = np.array([320, 320])
 config.NETWORK.SIGMA = 2
+
+config.NETWORK.RAND_SIGMA = False
+config.NETWORK.RAND_SIGMA_CLS = False
+config.NETWORK.RAND_SIGMA_FSCRATCH = False
+config.NETWORK.RAND_SIGMA_GAU = False
+config.NETWORK.RAND_SIGMA_SAMPLE = False
+
+
 config.NETWORK.TARGET_TYPE = 'gaussian'
 config.NETWORK.AGGRE = True
 config.NETWORK.USE_GT = False
 config.NETWORK.BETA = 100.0
 config.NETWORK.F_WEIGHT = False
+config.NETWORK.F_WEIGHT_SIGMA = 1000
+config.NETWORK.F_WEIGHT_WITH_W = ''
 
+config.NETWORK.DEP_DOWNSAMPLE = False
+config.NETWORK.DEP_DOWNSAMPLE_SIZE = np.array([128, 240])
+config.NETWORK.USE_UNET = False
+
+config.NETWORK.USE_GT_HM = False
+config.NETWORK.UNET_TYPE = 'di'
+config.NETWORK.UNET_DEP15 = False
+config.NETWORK.UNET_TRAIN_BY_TURN = False
+
+config.NETWORK.PSEUDEP = False
+
+config.NETWORK.DEPTH_MAXPOOL = True
+config.NETWORK.DEPTH_INPAINT = False
+config.NETWORK.DEPTH_INPAINT_METHOD = 5
+
+### 等下跑完一个epoch之后设置为True
+# config.NETWORK.USE_PRECOMPUTED_HM = True
+config.NETWORK.USE_PRECOMPUTED_HM = False
+config.NETWORK.USE_JRN = False
+config.NETWORK.NUM_JOINTS_WHOLEBODY = 123
+config.NETWORK.USE_WHOLEBODY_BACKBONE = False
+config.NETWORK.JRN_TYPE = 'all'
+config.NETWORK.USE_NOJRN_WHOLEBODY = False
 
 # pose_resnet related params
 config.POSE_RESNET = edict()
@@ -95,6 +128,10 @@ config.POSE_RESNET.FINAL_CONV_KERNEL = 1
 config.LOSS = edict()
 config.LOSS.USE_TARGET_WEIGHT = True
 config.LOSS.USE_DIFFERENT_JOINTS_WEIGHT = False
+config.LOSS.USE_DEPTH_RECON_LOSS = False
+config.LOSS.USE_FOCUS_DEPTH_RECON_LOSS = False
+config.LOSS.DEPTH_RECON_LOSS_WEIGHT = 1.0
+
 
 # DATASET related params
 config.DATASET = edict()
@@ -111,10 +148,22 @@ config.DATASET.COLOR_RGB = False
 config.DATASET.FLIP = True
 config.DATASET.DATA_AUGMENTATION = True
 config.DATASET.CAMERA_NUM = 5
+config.DATASET.NODE = 1
+config.DATASET.INTERVAL = -1
 
 # training data augmentation
 config.DATASET.SCALE_FACTOR = 0
 config.DATASET.ROT_FACTOR = 0
+
+# to fill the location of cloud value where mask is zero 
+config.DATASET.CLOUD_FILL = False
+config.DATASET.NAMEDATASET = 'all'
+config.DATASET.INTERP_25J = False
+
+config.DATASET.KIPROJ = False
+config.DATASET.WHOLEBODY = False
+config.DATASET.WHOLEBODY_MULTIPERSON = False
+
 
 # train
 config.TRAIN = edict()
@@ -136,6 +185,8 @@ config.TRAIN.RESUME = False
 
 config.TRAIN.BATCH_SIZE = 8
 config.TRAIN.SHUFFLE = True
+
+config.TRAIN.CPNPRNF = -1
 
 # testing
 config.TEST = edict()

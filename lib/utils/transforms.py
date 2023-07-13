@@ -156,6 +156,7 @@ def get_scale(image_size, resized_size):
 
     return scale
 
+from pdb import set_trace as st
 
 def projectPoints(X, K, R, t, Kd):
     """
@@ -165,8 +166,11 @@ def projectPoints(X, K, R, t, Kd):
     See http://docs.opencv.org/2.4/doc/tutorials/calib3d/camera_calibration/camera_calibration.html
     or cv2.projectPoints
     """
-
+    
     x = np.dot(R, X) + t
+
+    # print(f"x={x}")
+    # st()
 
     x[0:2, :] = x[0:2, :] / (x[2, :] + 1e-5)
 
@@ -181,6 +185,9 @@ def projectPoints(X, K, R, t, Kd):
 
     x[0, :] = K[0, 0] * x[0, :] + K[0, 1] * x[1, :] + K[0, 2]
     x[1, :] = K[1, 0] * x[0, :] + K[1, 1] * x[1, :] + K[1, 2]
+
+
+    # st()
 
     return x
 
