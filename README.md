@@ -1,14 +1,13 @@
 ## Main Results
-### Results on MPII val
-| Arch | Head | Shoulder | Elbow | Wrist | Hip | Knee | Ankle | Mean | Mean@0.1|
-|---|---|---|---|---|---|---|---|---|---|
-| 256x256_pose_resnet_50_d256d256d256 | 96.351 | 95.329 | 88.989 | 83.176 | 88.420 | 83.960 | 79.594 | 88.532 | 33.911 |
-| 384x384_pose_resnet_50_d256d256d256 | 96.658 | 95.754 | 89.790 | 84.614 | 88.523 | 84.666 | 79.287 | 89.066 | 38.046 |
-| 256x256_pose_resnet_101_d256d256d256 | 96.862 | 95.873 | 89.518 | 84.376 | 88.437 | 84.486 | 80.703 | 89.131 | 34.020 |
-| 384x384_pose_resnet_101_d256d256d256 | 96.965 | 95.907 | 90.268 | 85.780 | 89.597 | 85.935 | 82.098 | 90.003 | 38.860 |
-| 256x256_pose_resnet_152_d256d256d256 | 97.033 | 95.941 | 90.046 | 84.976 | 89.164 | 85.311 | 81.271 | 89.620 | 35.025 |
-| 384x384_pose_resnet_152_d256d256d256 | 96.794 | 95.618 | 90.080 | 86.225 | 89.700 | 86.862 | 82.853 | 90.200 | 39.433 
+### Results on CMU Panopic 
+| Arch | $AP_{25}$ | $AP_{50}$ | $AP_{100}$ | $AP_{150}$ | Recall | MPJPE |
+|---|---|---|---|---|---|---|
+| VoxelPose | 0.00 | 1.06 | 38.91 | 66.03 | 89.92 | 106.968 |
+| Residual Pose | 0.00 | 0.93 | 13.41 | 17.96 | 25.01 | 115.87 |
+| VoxelPose-mono | 9.00 | 62.32 | 86.63 | 90.88 | 91.66 | 44.528 |
 
+## Demo
+[![demo](https://res.cloudinary.com/marcomontalbano/image/upload/v1689228270/video_to_markdown/images/youtube--vcRxKtG7jWI-c05b58ac6eb4c4700831b2b3070cd403.jpg)](https://www.youtube.com/watch?v=vcRxKtG7jWI "demo")
 
 # VoxelPose
 
