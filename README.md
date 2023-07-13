@@ -1,3 +1,12 @@
+
+
+# VoxelPose-mono
+
+Based on the official implementation for:
+> [**VoxelPose: Towards Multi-Camera 3D Human Pose Estimation in Wild Environment**](https://arxiv.org/abs/2004.06239),            
+
+<img src="data/panoptic2.gif" width="800"/>
+
 ## Main Results
 ### Results on CMU Panopic 
 | Arch | $AP_{25}$ | $AP_{50}$ | $AP_{100}$ | $AP_{150}$ | Recall | MPJPE |
@@ -8,16 +17,6 @@
 
 ## Demo
 [![demo](https://res.cloudinary.com/marcomontalbano/image/upload/v1689228270/video_to_markdown/images/youtube--vcRxKtG7jWI-c05b58ac6eb4c4700831b2b3070cd403.jpg)](https://www.youtube.com/watch?v=vcRxKtG7jWI "demo")
-
-# VoxelPose
-
-This is the official implementation for:
-> [**VoxelPose: Towards Multi-Camera 3D Human Pose Estimation in Wild Environment**](https://arxiv.org/abs/2004.06239),            
-> Hanyue Tu, Chunyu Wang, Wenjun Zeng        
-> *ECCV 2020 (Oral) ([arXiv 2004.06239](https://arxiv.org/abs/2004.06239))*
-
-
-<img src="data/panoptic2.gif" width="800"/>
 
 
 ## Installation
